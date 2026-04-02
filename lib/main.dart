@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'modules/iot/machine_overview_screen.dart';
+import 'modules/iot/machine_dashboard_shell.dart';
 
 void main() {
   runApp(const MemcoApp());
@@ -12,7 +12,7 @@ class MemcoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: MachineOverviewScreen(),
+      home: MachineDashboardShell(),
     );
   }
 }

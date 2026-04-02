@@ -105,14 +105,12 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
   Widget buildShellCard({
     required String title,
     required Widget child,
-    double? height,
   }) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: double.infinity,
-        height: height,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +123,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Expanded(child: child),
+            child,
           ],
         ),
       ),
@@ -147,11 +145,16 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
               ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -160,7 +163,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
   }
 
   Widget buildPhaseGauge(String label, String value) {
-    return Expanded(
+    return SizedBox(
+      width: 120,
       child: Column(
         children: [
           Text(
@@ -169,6 +173,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
               fontWeight: FontWeight.bold,
               fontSize: 15,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 14),
           Container(
@@ -194,7 +199,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
   }
 
   Widget buildTempGauge(String label, String value, Color color) {
-    return Expanded(
+    return SizedBox(
+      width: 120,
       child: Column(
         children: [
           Text(
@@ -203,6 +209,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
               fontWeight: FontWeight.bold,
               fontSize: 15,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 14),
           Container(
@@ -233,54 +240,61 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     required String emptyText,
   }) {
     if (items.isEmpty) {
-      return Center(
-        child: Text(
-          emptyText,
-          style: const TextStyle(fontSize: 16, color: Colors.black54),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: Text(
+            emptyText,
+            style: const TextStyle(fontSize: 16, color: Colors.black54),
+          ),
         ),
       );
     }
 
-    return ListView.separated(
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const Divider(height: 18),
-      itemBuilder: (context, index) {
-        return Row(
-          children: [
-            Expanded(
-              child: Text(
-                items[index].toString(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+    return Column(
+      children: items.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.toString(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                color: activeColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: activeColor.withOpacity(0.5),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: activeColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: activeColor.withOpacity(0.5),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
-      },
+      }).toList(),
     );
   }
 
   Widget buildTrendChart(List<dynamic> trend) {
     if (trend.isEmpty) {
-      return const Center(
-        child: Text('No trend data available'),
+      return const SizedBox(
+        height: 220,
+        child: Center(
+          child: Text('No trend data available'),
+        ),
       );
     }
 
@@ -297,6 +311,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: const [
@@ -309,7 +324,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
           ],
         ),
         const SizedBox(height: 14),
-        Expanded(
+        SizedBox(
+          height: 220,
           child: LineChart(
             LineChartData(
               minY: 0,
@@ -360,10 +376,14 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Row(
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Expanded(
-              flex: 3,
+            const SizedBox(
+              width: 320,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -393,6 +413,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                 border: Border.all(color: statusColor),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.circle, size: 12, color: statusColor),
                   const SizedBox(width: 8),
@@ -406,7 +427,6 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
             Container(
               width: 78,
               height: 78,
@@ -431,9 +451,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
             SizedBox(
-              width: 180,
+              width: 220,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -441,7 +460,11 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                   buildMetricRow('Warning Count', warningCount, bold: true),
                   Row(
                     children: [
-                      const Icon(Icons.wifi_tethering, color: Colors.green, size: 16),
+                      const Icon(
+                        Icons.wifi_tethering,
+                        color: Colors.green,
+                        size: 16,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -460,6 +483,38 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget buildResponsiveCards(double width, List<Widget> cards) {
+    final bool stack = width < 1150;
+
+    if (stack) {
+      return Column(
+        children: cards
+            .map(
+              (card) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: card,
+              ),
+            )
+            .toList(),
+      );
+    }
+
+    final cardWidth = (width - 16) / 2;
+
+    return Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      children: cards
+          .map(
+            (card) => SizedBox(
+              width: cardWidth,
+              child: card,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -501,182 +556,170 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                     style: const TextStyle(color: Colors.red),
                   ),
                 )
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      buildTopHeader(
-                        status: status,
-                        health: health,
-                        alarmCount: alarmCount,
-                        warningCount: warningCount,
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: buildShellCard(
-                                      title: 'Welding Data',
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          buildMetricRow(
-                                            'Welding Current',
-                                            weldingCurrent,
-                                            bold: true,
-                                          ),
-                                          buildMetricRow(
-                                            'Welding Voltage',
-                                            weldingVoltage,
-                                            bold: true,
-                                          ),
-                                          buildMetricRow('Current Setting', '400'),
-                                          buildMetricRow('Fan Speed', '0'),
-                                          const Spacer(),
-                                          Expanded(
-                                            child: buildTrendChart(trend),
-                                          ),
-                                        ],
-                                      ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          buildTopHeader(
+                            status: status,
+                            health: health,
+                            alarmCount: alarmCount,
+                            warningCount: warningCount,
+                          ),
+                          const SizedBox(height: 16),
+                          buildResponsiveCards(
+                            constraints.maxWidth,
+                            [
+                              buildShellCard(
+                                title: 'Welding Data',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    buildMetricRow(
+                                      'Welding Current',
+                                      weldingCurrent,
+                                      bold: true,
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Expanded(
-                                    child: buildShellCard(
-                                      title: 'Temperature',
-                                      child: Column(
-                                        children: [
-                                          buildMetricRow(
-                                            'Trafo Core Temperature',
-                                            '${temperature['trafoCore'] ?? 0}',
-                                          ),
-                                          buildMetricRow(
-                                            'IGBT Temperature',
-                                            '${temperature['igbt'] ?? 0}',
-                                          ),
-                                          buildMetricRow(
-                                            'Heat Sync Temperature',
-                                            '${temperature['heatSync'] ?? 0}',
-                                          ),
-                                          const Spacer(),
-                                          Row(
-                                            children: [
-                                              buildTempGauge(
-                                                'Trafo',
-                                                '${temperature['trafoCore'] ?? 0}',
-                                                Colors.orange,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              buildTempGauge(
-                                                'IGBT',
-                                                '${temperature['igbt'] ?? 0}',
-                                                Colors.red,
-                                              ),
-                                              const SizedBox(width: 12),
-                                              buildTempGauge(
-                                                'Heat Sync',
-                                                '${temperature['heatSync'] ?? 0}',
-                                                Colors.deepOrange,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                    buildMetricRow(
+                                      'Welding Voltage',
+                                      weldingVoltage,
+                                      bold: true,
                                     ),
-                                  ),
-                                ],
+                                    buildMetricRow('Current Setting', '400'),
+                                    buildMetricRow('Fan Speed', '0'),
+                                    const SizedBox(height: 12),
+                                    buildTrendChart(trend),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: buildShellCard(
-                                      title: 'Input Power Supply',
-                                      child: Column(
-                                        children: [
-                                          buildMetricRow(
-                                            'In Voltage R',
-                                            '${inputVoltage['R'] ?? 0}',
-                                            bold: true,
-                                          ),
-                                          buildMetricRow(
-                                            'In Voltage Y',
-                                            '${inputVoltage['Y'] ?? 0}',
-                                            bold: true,
-                                          ),
-                                          buildMetricRow(
-                                            'In Voltage B',
-                                            '${inputVoltage['B'] ?? 0}',
-                                            bold: true,
-                                          ),
-                                          buildMetricRow('Last Updated', lastUpdatedAt),
-                                          const Spacer(),
-                                          Row(
-                                            children: [
-                                              buildPhaseGauge(
-                                                'R Voltage',
-                                                '${inputVoltage['R'] ?? 0}',
-                                              ),
-                                              const SizedBox(width: 12),
-                                              buildPhaseGauge(
-                                                'Y Voltage',
-                                                '${inputVoltage['Y'] ?? 0}',
-                                              ),
-                                              const SizedBox(width: 12),
-                                              buildPhaseGauge(
-                                                'B Voltage',
-                                                '${inputVoltage['B'] ?? 0}',
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                              buildShellCard(
+                                title: 'Input Power Supply',
+                                child: Column(
+                                  children: [
+                                    buildMetricRow(
+                                      'In Voltage R',
+                                      '${inputVoltage['R'] ?? 0}',
+                                      bold: true,
                                     ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Expanded(
-                                    child: Row(
+                                    buildMetricRow(
+                                      'In Voltage Y',
+                                      '${inputVoltage['Y'] ?? 0}',
+                                      bold: true,
+                                    ),
+                                    buildMetricRow(
+                                      'In Voltage B',
+                                      '${inputVoltage['B'] ?? 0}',
+                                      bold: true,
+                                    ),
+                                    buildMetricRow('Last Updated', lastUpdatedAt),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 16,
+                                      runSpacing: 16,
+                                      alignment: WrapAlignment.center,
                                       children: [
-                                        Expanded(
-                                          child: buildShellCard(
-                                            title: 'Alarms',
-                                            child: buildIndicatorList(
-                                              alarms,
-                                              activeColor: Colors.red,
-                                              emptyText: 'No active alarms',
-                                            ),
-                                          ),
+                                        buildPhaseGauge(
+                                          'R Voltage',
+                                          '${inputVoltage['R'] ?? 0}',
                                         ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: buildShellCard(
-                                            title: 'Warnings',
-                                            child: buildIndicatorList(
-                                              warnings,
-                                              activeColor: Colors.orange,
-                                              emptyText: 'No active warnings',
-                                            ),
-                                          ),
+                                        buildPhaseGauge(
+                                          'Y Voltage',
+                                          '${inputVoltage['Y'] ?? 0}',
+                                        ),
+                                        buildPhaseGauge(
+                                          'B Voltage',
+                                          '${inputVoltage['B'] ?? 0}',
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                              buildShellCard(
+                                title: 'Temperature',
+                                child: Column(
+                                  children: [
+                                    buildMetricRow(
+                                      'Trafo Core Temperature',
+                                      '${temperature['trafoCore'] ?? 0}',
+                                    ),
+                                    buildMetricRow(
+                                      'IGBT Temperature',
+                                      '${temperature['igbt'] ?? 0}',
+                                    ),
+                                    buildMetricRow(
+                                      'Heat Sync Temperature',
+                                      '${temperature['heatSync'] ?? 0}',
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 16,
+                                      runSpacing: 16,
+                                      alignment: WrapAlignment.center,
+                                      children: [
+                                        buildTempGauge(
+                                          'Trafo',
+                                          '${temperature['trafoCore'] ?? 0}',
+                                          Colors.orange,
+                                        ),
+                                        buildTempGauge(
+                                          'IGBT',
+                                          '${temperature['igbt'] ?? 0}',
+                                          Colors.red,
+                                        ),
+                                        buildTempGauge(
+                                          'Heat Sync',
+                                          '${temperature['heatSync'] ?? 0}',
+                                          Colors.deepOrange,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              buildShellCard(
+                                title: 'Alarms & Warnings',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Alarms',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    buildIndicatorList(
+                                      alarms,
+                                      activeColor: Colors.red,
+                                      emptyText: 'No active alarms',
+                                    ),
+                                    const SizedBox(height: 20),
+                                    const Text(
+                                      'Warnings',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    buildIndicatorList(
+                                      warnings,
+                                      activeColor: Colors.orange,
+                                      emptyText: 'No active warnings',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
     );
   }
