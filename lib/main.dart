@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'modules/iot/machine_dashboard_shell.dart';
+import 'Modules/Iot/machine_dashboard_shell.dart';
 
 void main() {
   runApp(const MemcoApp());
@@ -10,9 +10,64 @@ class MemcoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: MachineDashboardShell(),
+      title: 'MEMCO IoT',
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'Arial',
+        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF5E4BA8),
+        ),
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1F2937),
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1F2937),
+          ),
+          titleLarge: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1F2937),
+          ),
+          titleMedium: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1F2937),
+          ),
+          bodyLarge: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF374151),
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF4B5563),
+          ),
+          bodySmall: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+      ),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: const TextScaler.linear(1.0),
+          ),
+          child: child ?? const SizedBox(),
+        );
+      },
+      home: const MachineDashboardShell(),
     );
   }
 }

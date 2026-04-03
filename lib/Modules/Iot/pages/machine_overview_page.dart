@@ -1,17 +1,93 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/metric_row.dart';
 import '../helpers/responsive.dart';
+import '../services/machine_service.dart';
 
-class MachineOverviewPage extends StatelessWidget {
+class MachineOverviewPage extends StatefulWidget {
   const MachineOverviewPage({super.key});
 
+  @override
+  State<MachineOverviewPage> createState() => _MachineOverviewPageState();
+}
+
+class _MachineOverviewPageState extends State<MachineOverviewPage> {
   static const double _desktopMaxWidth = 1400;
   static const double _pagePadding = 16;
   static const double _gap = 16;
 
+  Map<String, dynamic>? overviewData;
+  bool isLoading = true;
+  String errorMessage = '';
+  Timer? refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOverview();
+    _startAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _loadOverview(showLoader: false);
+    });
+  }
+
+  Future<void> _loadOverview({bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        isLoading = true;
+        errorMessage = '';
+      });
+    }
+
+    try {
+      final data = await MachineService.fetchOverview();
+
+      if (!mounted) return;
+
+      setState(() {
+        overviewData = data;
+        isLoading = false;
+        errorMessage = '';
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (isLoading && overviewData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (errorMessage.isNotEmpty && overviewData == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            errorMessage,
+            style: const TextStyle(color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     if (Responsive.isDesktop(context)) {
       return _buildDesktop(context);
     } else if (Responsive.isTablet(context)) {
@@ -149,6 +225,15 @@ class MachineOverviewPage extends StatelessWidget {
   }
 
   Widget _buildTopSummary(BuildContext context, {required bool isMobile}) {
+    final status = _stringValue('status', '-');
+    final health = _stringValue('health', 'GREEN');
+    final alarmCount = _stringValue('alarmCount', '0');
+    final warningCount = _stringValue('warningCount', '0');
+    final updatedAt = _stringValue('lastUpdatedAt', '-');
+
+    final statusColor = _getStatusColor(status);
+    final healthColor = _getHealthColor(health);
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(isMobile ? 14 : 18),
@@ -182,18 +267,22 @@ class MachineOverviewPage extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _chip('WELDING', Colors.green),
-                    _circle('RED', Colors.red),
+                    _chip(status, statusColor),
+                    _circle(health, healthColor),
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Text('Alarm Count: 3',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                Text(
+                  'Alarm Count: $alarmCount',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 6),
-                const Text('Warning Count: 0',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                Text(
+                  'Warning Count: $warningCount',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 6),
-                const Text('Live • 15:42:10'),
+                Text('Live • $updatedAt'),
               ],
             )
           : Row(
@@ -217,20 +306,24 @@ class MachineOverviewPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                _chip('WELDING', Colors.green),
+                _chip(status, statusColor),
                 const SizedBox(width: 12),
-                _circle('RED', Colors.red),
+                _circle(health, healthColor),
                 const SizedBox(width: 16),
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Alarm Count: 3',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                    SizedBox(height: 8),
-                    Text('Warning Count: 0',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                    SizedBox(height: 8),
-                    Text('Live • 15:42:10'),
+                    Text(
+                      'Alarm Count: $alarmCount',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Warning Count: $warningCount',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Live • $updatedAt'),
                   ],
                 ),
               ],
@@ -243,15 +336,24 @@ class MachineOverviewPage extends StatelessWidget {
       title: 'Welding Data',
       child: Column(
         children: [
-          const MetricRow(label: 'Welding Current', value: '353.19 A'),
-          const MetricRow(label: 'Welding Voltage', value: '18.1 V'),
-          const MetricRow(label: 'Current Setting', value: '400 A'),
-          const MetricRow(label: 'Fan Speed', value: '0 RPM'),
-          const SizedBox(height: 12),
-          _fakeChartBox(
-            title: 'Current / Voltage Trend',
-            height: 180,
+          MetricRow(
+            label: 'Welding Current',
+            value: '${_numValue('weldingCurrent').toStringAsFixed(1)} A',
           ),
+          MetricRow(
+            label: 'Welding Voltage',
+            value: '${_numValue('weldingVoltage').toStringAsFixed(1)} V',
+          ),
+          MetricRow(
+            label: 'Current Setting',
+            value: '${_numValue('currentSetting').round()} A',
+          ),
+          MetricRow(
+            label: 'Fan Speed',
+            value: '${_numValue('fanSpeed').round()} RPM',
+          ),
+          const SizedBox(height: 12),
+          _fakeChartBox(title: 'Current / Voltage Trend', height: 180),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -284,22 +386,49 @@ class MachineOverviewPage extends StatelessWidget {
   }
 
   Widget _buildInputPowerCard(BuildContext context) {
+    final inputVoltage =
+        (overviewData?['inputVoltage'] as Map<String, dynamic>?) ?? {};
+
     return DashboardCard(
       title: 'Input Power Supply',
       child: Column(
         children: [
-          const MetricRow(label: 'In Voltage R', value: '211 V'),
-          const MetricRow(label: 'In Voltage Y', value: '224 V'),
-          const MetricRow(label: 'In Voltage B', value: '231 V'),
+          MetricRow(
+            label: 'In Voltage R',
+            value: '${(inputVoltage['R'] ?? 0).round()} V',
+          ),
+          MetricRow(
+            label: 'In Voltage Y',
+            value: '${(inputVoltage['Y'] ?? 0).round()} V',
+          ),
+          MetricRow(
+            label: 'In Voltage B',
+            value: '${(inputVoltage['B'] ?? 0).round()} V',
+          ),
           const MetricRow(label: 'Heartbeat', value: 'OK'),
           const SizedBox(height: 12),
           Row(
-            children: const [
-              Expanded(child: _MiniGauge(label: 'R Voltage', value: '211')),
-              SizedBox(width: 12),
-              Expanded(child: _MiniGauge(label: 'Y Voltage', value: '224')),
-              SizedBox(width: 12),
-              Expanded(child: _MiniGauge(label: 'B Voltage', value: '231')),
+            children: [
+              Expanded(
+                child: _MiniGauge(
+                  label: 'R Voltage',
+                  value: (inputVoltage['R'] ?? 0).round().toString(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MiniGauge(
+                  label: 'Y Voltage',
+                  value: (inputVoltage['Y'] ?? 0).round().toString(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MiniGauge(
+                  label: 'B Voltage',
+                  value: (inputVoltage['B'] ?? 0).round().toString(),
+                ),
+              ),
             ],
           ),
         ],
@@ -308,21 +437,53 @@ class MachineOverviewPage extends StatelessWidget {
   }
 
   Widget _buildTemperatureCard(BuildContext context) {
+    final temperature =
+        (overviewData?['temperature'] as Map<String, dynamic>?) ?? {};
+
     return DashboardCard(
       title: 'Temperature',
       child: Column(
         children: [
-          const MetricRow(label: 'Trafo Core Temperature', value: '34.21 °C'),
-          const MetricRow(label: 'IGBT Temperature', value: '42.67 °C'),
-          const MetricRow(label: 'Heat Sync Temp.', value: '47.3 °C'),
+          MetricRow(
+            label: 'Trafo Core Temperature',
+            value:
+                '${((temperature['trafoCore'] ?? 0) as num).toStringAsFixed(1)} °C',
+          ),
+          MetricRow(
+            label: 'IGBT Temperature',
+            value:
+                '${((temperature['igbt'] ?? 0) as num).toStringAsFixed(1)} °C',
+          ),
+          MetricRow(
+            label: 'Heat Sync Temp.',
+            value:
+                '${((temperature['heatSync'] ?? 0) as num).toStringAsFixed(1)} °C',
+          ),
           const SizedBox(height: 12),
           Row(
-            children: const [
-              Expanded(child: _MiniGauge(label: 'Trafo', value: '34')),
-              SizedBox(width: 12),
-              Expanded(child: _MiniGauge(label: 'IGBT', value: '42')),
-              SizedBox(width: 12),
-              Expanded(child: _MiniGauge(label: 'Heat Sync', value: '47')),
+            children: [
+              Expanded(
+                child: _MiniGauge(
+                  label: 'Trafo',
+                  value:
+                      ((temperature['trafoCore'] ?? 0) as num).toStringAsFixed(1),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MiniGauge(
+                  label: 'IGBT',
+                  value: ((temperature['igbt'] ?? 0) as num).toStringAsFixed(1),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _MiniGauge(
+                  label: 'Heat Sync',
+                  value:
+                      ((temperature['heatSync'] ?? 0) as num).toStringAsFixed(1),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -343,7 +504,9 @@ class MachineOverviewPage extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Reset temperature data clicked')),
+                      const SnackBar(
+                        content: Text('Reset temperature data clicked'),
+                      ),
                     );
                   },
                   child: const Text('Reset'),
@@ -402,10 +565,7 @@ class MachineOverviewPage extends StatelessWidget {
       title: 'AC Voltage Trend',
       child: Column(
         children: [
-          _fakeChartBox(
-            title: 'R / Y / B Phase Trend',
-            height: 220,
-          ),
+          _fakeChartBox(title: 'R / Y / B Phase Trend', height: 220),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -438,34 +598,50 @@ class MachineOverviewPage extends StatelessWidget {
   }
 
   Widget _buildAlarmsCard(BuildContext context) {
+    final alarms = (overviewData?['alarms'] as List<dynamic>?) ?? [];
+
     return DashboardCard(
       title: 'Alarms',
       child: Column(
-        children: const [
-          _StatusRow(label: 'Trafo Core Temperature HI', color: Colors.green),
-          _StatusRow(label: 'IGBT Temperature HI', color: Colors.green),
-          _StatusRow(label: 'Heat Sink Temperature HI', color: Colors.green),
-          _StatusRow(label: 'R Voltage', color: Colors.green),
-          _StatusRow(label: 'Y Voltage', color: Colors.green),
-          _StatusRow(label: 'B Voltage', color: Colors.green),
-          _StatusRow(label: 'Fan Speed', color: Colors.red),
+        children: [
+          _StatusRow(
+            label: 'OVERHEAT',
+            color: alarms.contains('OVERHEAT') ? Colors.red : Colors.green,
+          ),
+          _StatusRow(
+            label: 'HIGH_VOLTAGE',
+            color: alarms.contains('HIGH_VOLTAGE') ? Colors.red : Colors.green,
+          ),
+          _StatusRow(
+            label: 'OVER_CURRENT',
+            color: alarms.contains('OVER_CURRENT') ? Colors.red : Colors.green,
+          ),
+          const _StatusRow(label: 'Fan Speed', color: Colors.green),
         ],
       ),
     );
   }
 
   Widget _buildWarningsCard(BuildContext context) {
+    final warnings = (overviewData?['warnings'] as List<dynamic>?) ?? [];
+
     return DashboardCard(
       title: 'Warnings',
       child: Column(
-        children: const [
-          _StatusRow(label: 'Trafo Core Temperature HI', color: Colors.green),
-          _StatusRow(label: 'IGBT Temperature HI', color: Colors.green),
-          _StatusRow(label: 'Heat Sink Temperature HI', color: Colors.green),
-          _StatusRow(label: 'R Voltage', color: Colors.green),
-          _StatusRow(label: 'Y Voltage', color: Colors.green),
-          _StatusRow(label: 'B Voltage', color: Colors.green),
-          _StatusRow(label: 'Dust Collector Sensor', color: Colors.orange),
+        children: [
+          _StatusRow(
+            label: 'TEMP_WARNING',
+            color: warnings.contains('TEMP_WARNING')
+                ? Colors.orange
+                : Colors.green,
+          ),
+          _StatusRow(
+            label: 'VOLTAGE_WARNING',
+            color: warnings.contains('VOLTAGE_WARNING')
+                ? Colors.orange
+                : Colors.green,
+          ),
+          const _StatusRow(label: 'Dust Collector Sensor', color: Colors.green),
         ],
       ),
     );
@@ -495,6 +671,41 @@ class MachineOverviewPage extends StatelessWidget {
     );
   }
 
+  String _stringValue(String key, String fallback) {
+    final value = overviewData?[key];
+    return value == null ? fallback : value.toString();
+  }
+
+  num _numValue(String key) {
+    final value = overviewData?[key];
+    if (value is num) return value;
+    return 0;
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'WELDING':
+        return Colors.green;
+      case 'IDLE':
+        return Colors.blue;
+      case 'OFF':
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Color _getHealthColor(String health) {
+    switch (health.toUpperCase()) {
+      case 'RED':
+        return Colors.red;
+      case 'YELLOW':
+        return Colors.orange;
+      case 'GREEN':
+      default:
+        return Colors.green;
+    }
+  }
+
   Widget _chip(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -521,9 +732,11 @@ class MachineOverviewPage extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         text,
+        textAlign: TextAlign.center,
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w700,
+          fontSize: 12,
         ),
       ),
     );
@@ -559,8 +772,9 @@ class _MiniGauge extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             value,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),

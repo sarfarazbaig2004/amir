@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/machine_fleet_overview_page.dart';
 import 'pages/machine_overview_page.dart';
 import 'pages/machine_production_page.dart';
 import 'pages/machine_engineering_page.dart';
@@ -12,28 +13,52 @@ class MachineDashboardShell extends StatefulWidget {
 }
 
 class _MachineDashboardShellState extends State<MachineDashboardShell> {
-  int selectedIndex = 0;
+  int _selectedIndex = 0;
+
+  final List<Widget> _pages = const [
+    MachineFleetOverviewPage(),
+    MachineOverviewPage(),
+    MachineProductionPage(),
+    MachineEngineeringPage(),
+    LoggerCalibrationPage(),
+  ];
+
+  String _titleForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'Machine Fleet Overview';
+      case 1:
+        return 'Machine Overview';
+      case 2:
+        return 'Machine Production';
+      case 3:
+        return 'Machine Engineering Data';
+      case 4:
+        return 'Logger Calibration';
+      default:
+        return 'MEMCO Dashboard';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      const MachineOverviewPage(),
-      const MachineProductionPage(),
-      const MachineEngineeringPage(),
-      const LoggerCalibrationPage(),
-    ];
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
       body: Row(
         children: [
           NavigationRail(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() => selectedIndex = index);
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (value) {
+              setState(() {
+                _selectedIndex = value;
+              });
             },
-            labelType: NavigationRailLabelType.none,
+            labelType: NavigationRailLabelType.all,
             destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.grid_view_outlined),
+                selectedIcon: Icon(Icons.grid_view),
+                label: Text('Fleet'),
+              ),
               NavigationRailDestination(
                 icon: Icon(Icons.home_outlined),
                 selectedIcon: Icon(Icons.home),
@@ -71,7 +96,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
                     ),
                   ),
                   child: Text(
-                    _titleForIndex(selectedIndex),
+                    _titleForIndex(_selectedIndex),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -79,10 +104,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
                   ),
                 ),
                 Expanded(
-                  child: IndexedStack(
-                    index: selectedIndex,
-                    children: pages,
-                  ),
+                  child: _pages[_selectedIndex],
                 ),
               ],
             ),
@@ -90,20 +112,5 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
         ],
       ),
     );
-  }
-
-  String _titleForIndex(int index) {
-    switch (index) {
-      case 0:
-        return 'Machine Overview';
-      case 1:
-        return 'Machine Production';
-      case 2:
-        return 'Machine Engineering Data';
-      case 3:
-        return 'Logger Calibration';
-      default:
-        return 'MEMCO Dashboard';
-    }
   }
 }
