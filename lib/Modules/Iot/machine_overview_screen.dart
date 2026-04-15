@@ -19,7 +19,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
   Timer? refreshTimer;
   DateTime? lastRefreshTime;
 
-  final String apiUrl = 'http://localhost:5000/api/machine/1/overview';
+  final String apiUrl =
+      'https://memco-iot-backend.onrender.com/api/machine/1/overview';
 
   @override
   void initState() {
@@ -74,27 +75,82 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
   }
 
   Color getHealthColor(String health) {
-    switch (health.toUpperCase()) {
+    final normalized = health.trim().toUpperCase();
+    switch (normalized) {
       case 'RED':
-        return Colors.red;
+        return Colors.red.shade700;
       case 'YELLOW':
-        return Colors.orange;
+        return Colors.amber.shade700;
       case 'GREEN':
       default:
-        return Colors.green;
+        return Colors.green.shade700;
     }
   }
 
   Color getStatusColor(String status) {
-    switch (status.toUpperCase()) {
+    final normalized = status.trim().toUpperCase();
+    switch (normalized) {
       case 'WELDING':
-        return Colors.green;
+        return Colors.orange.shade700;
       case 'IDLE':
-        return Colors.blue;
+        return Colors.blue.shade700;
       case 'OFF':
       default:
-        return Colors.grey;
+        return Colors.grey.shade800;
     }
+  }
+
+  Widget buildHealthBadge(String health) {
+    final normalized = health.trim().toUpperCase();
+    final color = getHealthColor(normalized);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 51),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Text(
+        'HEALTH: $normalized',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget buildStatusBadge(String status) {
+    final normalized = status.trim().toUpperCase();
+    final color = getStatusColor(normalized);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 61),
+            blurRadius: 18,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Text(
+        normalized,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 
   String formatRefreshText() {
@@ -102,10 +158,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     return 'Live • ${lastRefreshTime!.hour.toString().padLeft(2, '0')}:${lastRefreshTime!.minute.toString().padLeft(2, '0')}:${lastRefreshTime!.second.toString().padLeft(2, '0')}';
   }
 
-  Widget buildShellCard({
-    required String title,
-    required Widget child,
-  }) {
+  Widget buildShellCard({required String title, required Widget child}) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -117,10 +170,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 18),
             child,
@@ -169,10 +219,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 14),
@@ -205,10 +252,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 14),
@@ -274,7 +318,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: activeColor.withOpacity(0.5),
+                      color: activeColor.withValues(alpha: 128),
                       blurRadius: 8,
                       spreadRadius: 1,
                     ),
@@ -290,10 +334,11 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
 
   Widget buildTrendChart(List<dynamic> trend) {
     if (trend.isEmpty) {
-      return const SizedBox(
-        height: 220,
-        child: Center(
-          child: Text('No trend data available'),
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          alignment: Alignment.center,
+          child: const Text('No trend data available'),
         ),
       );
     }
@@ -324,8 +369,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
           ],
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          height: 220,
+        AspectRatio(
+          aspectRatio: 16 / 9,
           child: LineChart(
             LineChartData(
               minY: 0,
@@ -368,117 +413,74 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     required String alarmCount,
     required String warningCount,
   }) {
-    final statusColor = getStatusColor(status);
-    final healthColor = getHealthColor(health);
-
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(
-              width: 320,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'MEMCO Machine Overview',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Machine: ARC400  |  Company: MEMCO',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: statusColor),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.circle, size: 12, color: statusColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    status,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 78,
-              height: 78,
-              decoration: BoxDecoration(
-                color: healthColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: healthColor.withOpacity(0.35),
-                    blurRadius: 14,
-                    spreadRadius: 3,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  health,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 220,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  buildMetricRow('Alarm Count', alarmCount, bold: true),
-                  buildMetricRow('Warning Count', warningCount, bold: true),
-                  Row(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.wifi_tethering,
-                        color: Colors.green,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          formatRefreshText(),
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      Text(
+                        'MEMCO Machine Overview',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Machine: ARC400  |  Company: MEMCO',
+                        style: TextStyle(fontSize: 15, color: Colors.black54),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                buildHealthBadge(health),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                buildStatusBadge(status),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      buildMetricRow('Alarm Count', alarmCount, bold: true),
+                      buildMetricRow('Warning Count', warningCount, bold: true),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.wifi_tethering,
+                            color: Colors.green,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              formatRefreshText(),
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -508,12 +510,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
       spacing: 16,
       runSpacing: 16,
       children: cards
-          .map(
-            (card) => SizedBox(
-              width: cardWidth,
-              child: card,
-            ),
-          )
+          .map((card) => SizedBox(width: cardWidth, child: card))
           .toList(),
     );
   }
@@ -550,177 +547,174 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : errorMessage.isNotEmpty
-              ? Center(
-                  child: Text(
-                    errorMessage,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          buildTopHeader(
-                            status: status,
-                            health: health,
-                            alarmCount: alarmCount,
-                            warningCount: warningCount,
+          ? Center(
+              child: Text(
+                errorMessage,
+                style: const TextStyle(color: Colors.red),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      buildTopHeader(
+                        status: status,
+                        health: health,
+                        alarmCount: alarmCount,
+                        warningCount: warningCount,
+                      ),
+                      const SizedBox(height: 16),
+                      buildResponsiveCards(constraints.maxWidth, [
+                        buildShellCard(
+                          title: 'Welding Data',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              buildMetricRow(
+                                'Welding Current',
+                                weldingCurrent,
+                                bold: true,
+                              ),
+                              buildMetricRow(
+                                'Welding Voltage',
+                                weldingVoltage,
+                                bold: true,
+                              ),
+                              buildMetricRow('Current Setting', '400'),
+                              buildMetricRow('Fan Speed', '0'),
+                              const SizedBox(height: 12),
+                              buildTrendChart(trend),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          buildResponsiveCards(
-                            constraints.maxWidth,
-                            [
-                              buildShellCard(
-                                title: 'Welding Data',
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    buildMetricRow(
-                                      'Welding Current',
-                                      weldingCurrent,
-                                      bold: true,
-                                    ),
-                                    buildMetricRow(
-                                      'Welding Voltage',
-                                      weldingVoltage,
-                                      bold: true,
-                                    ),
-                                    buildMetricRow('Current Setting', '400'),
-                                    buildMetricRow('Fan Speed', '0'),
-                                    const SizedBox(height: 12),
-                                    buildTrendChart(trend),
-                                  ],
-                                ),
+                        ),
+                        buildShellCard(
+                          title: 'Input Power Supply',
+                          child: Column(
+                            children: [
+                              buildMetricRow(
+                                'In Voltage R',
+                                '${inputVoltage['R'] ?? 0}',
+                                bold: true,
                               ),
-                              buildShellCard(
-                                title: 'Input Power Supply',
-                                child: Column(
-                                  children: [
-                                    buildMetricRow(
-                                      'In Voltage R',
-                                      '${inputVoltage['R'] ?? 0}',
-                                      bold: true,
-                                    ),
-                                    buildMetricRow(
-                                      'In Voltage Y',
-                                      '${inputVoltage['Y'] ?? 0}',
-                                      bold: true,
-                                    ),
-                                    buildMetricRow(
-                                      'In Voltage B',
-                                      '${inputVoltage['B'] ?? 0}',
-                                      bold: true,
-                                    ),
-                                    buildMetricRow('Last Updated', lastUpdatedAt),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 16,
-                                      runSpacing: 16,
-                                      alignment: WrapAlignment.center,
-                                      children: [
-                                        buildPhaseGauge(
-                                          'R Voltage',
-                                          '${inputVoltage['R'] ?? 0}',
-                                        ),
-                                        buildPhaseGauge(
-                                          'Y Voltage',
-                                          '${inputVoltage['Y'] ?? 0}',
-                                        ),
-                                        buildPhaseGauge(
-                                          'B Voltage',
-                                          '${inputVoltage['B'] ?? 0}',
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                              buildMetricRow(
+                                'In Voltage Y',
+                                '${inputVoltage['Y'] ?? 0}',
+                                bold: true,
                               ),
-                              buildShellCard(
-                                title: 'Temperature',
-                                child: Column(
-                                  children: [
-                                    buildMetricRow(
-                                      'Trafo Core Temperature',
-                                      '${temperature['trafoCore'] ?? 0}',
-                                    ),
-                                    buildMetricRow(
-                                      'IGBT Temperature',
-                                      '${temperature['igbt'] ?? 0}',
-                                    ),
-                                    buildMetricRow(
-                                      'Heat Sync Temperature',
-                                      '${temperature['heatSync'] ?? 0}',
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 16,
-                                      runSpacing: 16,
-                                      alignment: WrapAlignment.center,
-                                      children: [
-                                        buildTempGauge(
-                                          'Trafo',
-                                          '${temperature['trafoCore'] ?? 0}',
-                                          Colors.orange,
-                                        ),
-                                        buildTempGauge(
-                                          'IGBT',
-                                          '${temperature['igbt'] ?? 0}',
-                                          Colors.red,
-                                        ),
-                                        buildTempGauge(
-                                          'Heat Sync',
-                                          '${temperature['heatSync'] ?? 0}',
-                                          Colors.deepOrange,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                              buildMetricRow(
+                                'In Voltage B',
+                                '${inputVoltage['B'] ?? 0}',
+                                bold: true,
                               ),
-                              buildShellCard(
-                                title: 'Alarms & Warnings',
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Alarms',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    buildIndicatorList(
-                                      alarms,
-                                      activeColor: Colors.red,
-                                      emptyText: 'No active alarms',
-                                    ),
-                                    const SizedBox(height: 20),
-                                    const Text(
-                                      'Warnings',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    buildIndicatorList(
-                                      warnings,
-                                      activeColor: Colors.orange,
-                                      emptyText: 'No active warnings',
-                                    ),
-                                  ],
-                                ),
+                              buildMetricRow('Last Updated', lastUpdatedAt),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 16,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  buildPhaseGauge(
+                                    'R Voltage',
+                                    '${inputVoltage['R'] ?? 0}',
+                                  ),
+                                  buildPhaseGauge(
+                                    'Y Voltage',
+                                    '${inputVoltage['Y'] ?? 0}',
+                                  ),
+                                  buildPhaseGauge(
+                                    'B Voltage',
+                                    '${inputVoltage['B'] ?? 0}',
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                        buildShellCard(
+                          title: 'Temperature',
+                          child: Column(
+                            children: [
+                              buildMetricRow(
+                                'Trafo Core Temperature',
+                                '${temperature['trafoCore'] ?? 0}',
+                              ),
+                              buildMetricRow(
+                                'IGBT Temperature',
+                                '${temperature['igbt'] ?? 0}',
+                              ),
+                              buildMetricRow(
+                                'Heat Sync Temperature',
+                                '${temperature['heatSync'] ?? 0}',
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 16,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  buildTempGauge(
+                                    'Trafo',
+                                    '${temperature['trafoCore'] ?? 0}',
+                                    Colors.orange,
+                                  ),
+                                  buildTempGauge(
+                                    'IGBT',
+                                    '${temperature['igbt'] ?? 0}',
+                                    Colors.red,
+                                  ),
+                                  buildTempGauge(
+                                    'Heat Sync',
+                                    '${temperature['heatSync'] ?? 0}',
+                                    Colors.deepOrange,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        buildShellCard(
+                          title: 'Alarms & Warnings',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Alarms',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              buildIndicatorList(
+                                alarms,
+                                activeColor: Colors.red,
+                                emptyText: 'No active alarms',
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Warnings',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              buildIndicatorList(
+                                warnings,
+                                activeColor: Colors.orange,
+                                emptyText: 'No active warnings',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }

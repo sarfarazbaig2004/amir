@@ -13,7 +13,7 @@ class MetricRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -21,18 +21,20 @@ class MetricRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF4B5563),
+                    color: const Color(0xFF475569),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Text(
             value,
             textAlign: TextAlign.right,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF111827),
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
             ),
           ),
         ],

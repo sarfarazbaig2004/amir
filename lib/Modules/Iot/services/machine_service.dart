@@ -3,10 +3,10 @@ import 'package:http/http.dart' as http;
 
 class MachineService {
   static const String overviewUrl =
-      'http://127.0.0.1:5000/api/machine/1/overview';
+      'http://localhost:5000/api/machine/3/overview';
 
   static const String fleetUrl =
-      'http://127.0.0.1:5000/api/machines/overview';
+      'http://localhost:5000/api/machines/overview';
 
   static Future<Map<String, dynamic>> fetchOverview() async {
     final response = await http.get(Uri.parse(overviewUrl));
@@ -14,7 +14,7 @@ class MachineService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else {
-      throw Exception('Failed to load data');
+      throw Exception('Failed to load overview: ${response.statusCode}');
     }
   }
 
@@ -24,7 +24,7 @@ class MachineService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as List<dynamic>;
     } else {
-      throw Exception('Failed to load fleet data');
+      throw Exception('Failed to load fleet: ${response.statusCode}');
     }
   }
 }
