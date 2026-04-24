@@ -44,7 +44,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
 
   Future<void> fetchData() async {
     try {
-      final data = await MachineService.fetchFleet();
+      final data = await MachineService.getFleetOverview();
       if (!mounted) return;
 
       final sortedMachines = List<Map<String, dynamic>>.from(data);

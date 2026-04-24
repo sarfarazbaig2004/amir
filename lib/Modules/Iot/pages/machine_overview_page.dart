@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../config/app_config.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/metric_row.dart';
 import '../helpers/responsive.dart';
@@ -52,7 +53,9 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
     }
 
     try {
-      final data = await MachineService.fetchOverview();
+      final data = await MachineService.getMachineOverview(
+        AppConfig.defaultMachineId,
+      );
 
       if (!mounted) return;
 
@@ -237,7 +240,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
 
     final statusColor = _getStatusColor(status);
     final healthColor = _getHealthColor(health);
-    final cardPadding = isMobile ? 24.0 : 28.0;
+    final cardPadding = isMobile ? 18.0 : 28.0;
 
     return Container(
       width: double.infinity,
@@ -264,22 +267,26 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                 Text(
                   'Machine Details',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF111827),
                   ),
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: 4),
                 Text(
                   'MEMCO · ARC400 · Industrial Welding',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _chip(status, statusColor),
                 _chip(health, healthColor),
@@ -1296,18 +1303,20 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Widget _chip(String text, Color color) {
+    final normalized = text.trim().toUpperCase();
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 14),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 80)),
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 180)),
       ),
       child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
+        normalized,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
           fontSize: 12,
           letterSpacing: 0.35,
         ),

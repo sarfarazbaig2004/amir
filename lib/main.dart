@@ -25,36 +25,43 @@ class MemcoApp extends StatelessWidget {
             fontSize: 28,
             fontWeight: FontWeight.w700,
             color: Color(0xFF1F2937),
+            decoration: TextDecoration.none,
           ),
           headlineMedium: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: Color(0xFF1F2937),
+            decoration: TextDecoration.none,
           ),
           titleLarge: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Color(0xFF1F2937),
+            decoration: TextDecoration.none,
           ),
           titleMedium: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Color(0xFF1F2937),
+            decoration: TextDecoration.none,
           ),
           bodyLarge: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
             color: Color(0xFF374151),
+            decoration: TextDecoration.none,
           ),
           bodyMedium: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: Color(0xFF4B5563),
+            decoration: TextDecoration.none,
           ),
           bodySmall: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: Color(0xFF6B7280),
+            decoration: TextDecoration.none,
           ),
         ),
       ),
@@ -64,7 +71,10 @@ class MemcoApp extends StatelessWidget {
           data: mediaQuery.copyWith(
             textScaler: const TextScaler.linear(1.0),
           ),
-          child: child ?? const SizedBox(),
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(decoration: TextDecoration.none),
+            child: child ?? const SizedBox(),
+          ),
         );
       },
       home: const MachineDashboardShell(),

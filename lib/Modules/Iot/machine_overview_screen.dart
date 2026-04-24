@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import '../../config/app_config.dart';
+import 'services/machine_service.dart';
 
 class MachineOverviewScreen extends StatefulWidget {
   const MachineOverviewScreen({super.key});
@@ -18,9 +18,6 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
   String errorMessage = '';
   Timer? refreshTimer;
   DateTime? lastRefreshTime;
-
-  final String apiUrl =
-      'https://memco-iot-backend.onrender.com/api/machine/1/overview';
 
   @override
   void initState() {
@@ -50,22 +47,16 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     }
 
     try {
-      final response = await http.get(Uri.parse(apiUrl));
+      final data = await MachineService.getMachineOverview(
+        AppConfig.defaultMachineId,
+      );
 
-      if (response.statusCode == 200) {
-        setState(() {
-          overviewData = jsonDecode(response.body);
-          isLoading = false;
-          errorMessage = '';
-          lastRefreshTime = DateTime.now();
-        });
-      } else {
-        setState(() {
-          errorMessage =
-              'Failed to load overview. Status: ${response.statusCode}';
-          isLoading = false;
-        });
-      }
+      setState(() {
+        overviewData = data;
+        isLoading = false;
+        errorMessage = '';
+        lastRefreshTime = DateTime.now();
+      });
     } catch (e) {
       setState(() {
         errorMessage = 'Error: $e';
