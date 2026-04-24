@@ -3,12 +3,59 @@ import '../widgets/dashboard_card.dart';
 import '../widgets/metric_row.dart';
 import '../helpers/responsive.dart';
 
-class MachineProductionPage extends StatelessWidget {
+class MachineProductionPage extends StatefulWidget {
   const MachineProductionPage({super.key});
+
+  @override
+  State<MachineProductionPage> createState() => _MachineProductionPageState();
+}
+
+class _MachineProductionPageState extends State<MachineProductionPage> {
+  final Map<String, String> _runningJobMetrics = {
+    'Arcing Time': '0:49:20',
+    'Idle Time': '0:9:20',
+    'DC Energy': '2.27',
+    'Deposition': '7.82',
+    'Wire Feed Meter': '0',
+    'No Of Arcs': '27',
+  };
+
+  final Map<String, String> _lifetimeMetrics = {
+    'Arcing Time': '4:55:29',
+    'Idle Time': '3:23:50',
+    'DC Energy': '2.67',
+    'Deposition': '9.2',
+    'Wire Feed Meter': '0',
+    'No Of Arcs': '58',
+  };
 
   static const double _pagePadding = 16;
   static const double _gap = 16;
   static const double _maxWidth = 1400;
+
+  void _resetRunningJobMetrics() {
+    setState(() {
+      _runningJobMetrics
+        ..['Arcing Time'] = '0:00:00'
+        ..['Idle Time'] = '0:00:00'
+        ..['DC Energy'] = '0'
+        ..['Deposition'] = '0'
+        ..['Wire Feed Meter'] = '0'
+        ..['No Of Arcs'] = '0';
+    });
+  }
+
+  void _resetLifetimeMetrics() {
+    setState(() {
+      _lifetimeMetrics
+        ..['Arcing Time'] = '0:00:00'
+        ..['Idle Time'] = '0:00:00'
+        ..['DC Energy'] = '0'
+        ..['Deposition'] = '0'
+        ..['Wire Feed Meter'] = '0'
+        ..['No Of Arcs'] = '0';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,12 +165,9 @@ class MachineProductionPage extends StatelessWidget {
       title: 'Running Job',
       child: Column(
         children: [
-          const MetricRow(label: 'Arcing Time', value: '0:49:20'),
-          const MetricRow(label: 'Idle Time', value: '0:9:20'),
-          const MetricRow(label: 'DC Energy', value: '2.27'),
-          const MetricRow(label: 'Deposition', value: '7.82'),
-          const MetricRow(label: 'Wire Feed Meter', value: '0'),
-          const MetricRow(label: 'No Of Arcs', value: '27'),
+          ..._runningJobMetrics.entries.map(
+            (metric) => MetricRow(label: metric.key, value: metric.value),
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -133,7 +177,8 @@ class MachineProductionPage extends StatelessWidget {
                 title: 'Reset Job Data',
                 message:
                     'Are you sure you want to reset current job production data?',
-                successText: 'Job data reset action triggered',
+                successText: 'Job data reset',
+                onConfirm: _resetRunningJobMetrics,
               ),
               child: const Text('Reset Job Data'),
             ),
@@ -148,12 +193,9 @@ class MachineProductionPage extends StatelessWidget {
       title: 'Machine Lifetime',
       child: Column(
         children: [
-          const MetricRow(label: 'Arcing Time', value: '4:55:29'),
-          const MetricRow(label: 'Idle Time', value: '3:23:50'),
-          const MetricRow(label: 'DC Energy', value: '2.67'),
-          const MetricRow(label: 'Deposition', value: '9.2'),
-          const MetricRow(label: 'Wire Feed Meter', value: '0'),
-          const MetricRow(label: 'No Of Arcs', value: '58'),
+          ..._lifetimeMetrics.entries.map(
+            (metric) => MetricRow(label: metric.key, value: metric.value),
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -163,7 +205,8 @@ class MachineProductionPage extends StatelessWidget {
                 title: 'Reset Machine Lifetime Data',
                 message:
                     'This should usually be allowed only for admin or service engineer. Do you want to continue?',
-                successText: 'Machine lifetime reset action triggered',
+                successText: 'Machine lifetime data reset',
+                onConfirm: _resetLifetimeMetrics,
               ),
               child: const Text('Reset Machine Data'),
             ),
@@ -217,6 +260,7 @@ class MachineProductionPage extends StatelessWidget {
     required String title,
     required String message,
     required String successText,
+    required VoidCallback onConfirm,
   }) {
     showDialog<void>(
       context: context,
@@ -234,6 +278,7 @@ class MachineProductionPage extends StatelessWidget {
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
+                onConfirm();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(successText)),
                 );
