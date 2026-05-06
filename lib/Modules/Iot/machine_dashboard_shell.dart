@@ -116,6 +116,9 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
             allowedMachineCodes: access.allMachines
                 ? null
                 : access.allowedMachineCodes,
+            allowedMachineIds: access.allMachines
+                ? null
+                : access.allowedMachineIds,
           ),
         ),
       );
@@ -129,9 +132,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
           icon: Icons.home_outlined,
           selectedIcon: Icons.home,
           page: MachineOverviewPage(
-            machineId: access.allowedMachineCodes.isEmpty
-                ? null
-                : access.allowedMachineCodes.first,
+            machineId: _firstAllowedMachineId(access),
             access: access,
           ),
         ),
@@ -146,9 +147,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
           icon: Icons.factory_outlined,
           selectedIcon: Icons.factory,
           page: MachineProductionPage(
-            machineId: access.allowedMachineCodes.isEmpty
-                ? null
-                : access.allowedMachineCodes.first,
+            machineId: _firstAllowedMachineId(access),
           ),
         ),
       );
@@ -167,6 +166,18 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
     }
 
     return items;
+  }
+
+  String? _firstAllowedMachineId(CustomerAccess access) {
+    if (access.allowedMachineCodes.isNotEmpty) {
+      return access.allowedMachineCodes.first;
+    }
+
+    if (access.allowedMachineIds.isNotEmpty) {
+      return access.allowedMachineIds.first.toString();
+    }
+
+    return null;
   }
 
   @override

@@ -71,11 +71,13 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
 
   bool _isSessionAllowed(dynamic session) {
     final allowedMachineCodes = widget.allowedMachineCodes;
-    if (allowedMachineCodes == null) {
+    final allowedMachineIds = widget.allowedMachineIds;
+    if (allowedMachineCodes == null && allowedMachineIds == null) {
       return true;
     }
 
-    if (allowedMachineCodes.isEmpty) {
+    if ((allowedMachineCodes?.isEmpty ?? true) &&
+        (allowedMachineIds?.isEmpty ?? true)) {
       return false;
     }
 
@@ -88,7 +90,6 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
       return false;
     }
 
-    final allowedMachineIds = widget.allowedMachineIds;
     final rawId = machine['id'] ?? machine['machineId'];
     final machineId = rawId is int
         ? rawId
@@ -100,7 +101,7 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     }
 
     final code = (machine['machineCode'] ?? machine['code'] ?? '').toString();
-    return allowedMachineCodes.contains(code);
+    return allowedMachineCodes?.contains(code) ?? false;
   }
 
   int? _sessionMachineId(dynamic session) {

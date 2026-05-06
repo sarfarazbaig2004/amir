@@ -293,18 +293,20 @@ class CustomerAccessService {
     if (accessJson == null) return null;
 
     final normalizedEmail = email.trim().toLowerCase();
+    final machineCodesJson =
+        accessJson['machines'] ?? accessJson['allowedMachines'];
+    final machineIdsJson =
+        accessJson['machineIds'] ??
+        accessJson['allowedMachineIds'] ??
+        machineCodesJson;
 
     return CustomerAccess(
       customerId: customerId ?? normalizedEmail,
       enabledModules: _stringSet(
         accessJson['modules'] ?? accessJson['allowedModules'],
       ),
-      allowedMachineCodes: _machineCodeSet(
-        accessJson['machines'] ?? accessJson['allowedMachines'],
-      ),
-      allowedMachineIds: _machineIdSet(
-        accessJson['machines'] ?? accessJson['allowedMachines'],
-      ),
+      allowedMachineCodes: _machineCodeSet(machineCodesJson),
+      allowedMachineIds: _machineIdSet(machineIdsJson),
       allMachines: accessJson['allMachines'] == true,
       enabledFeatures: _stringSet(
         accessJson['features'] ?? accessJson['allowedFeatures'],

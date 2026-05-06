@@ -5,9 +5,14 @@ import '../services/machine_service.dart';
 import 'machine_overview_page.dart';
 
 class MachineFleetOverviewPage extends StatefulWidget {
-  const MachineFleetOverviewPage({super.key, this.allowedMachineCodes});
+  const MachineFleetOverviewPage({
+    super.key,
+    this.allowedMachineCodes,
+    this.allowedMachineIds,
+  });
 
   final Set<String>? allowedMachineCodes;
+  final Set<int>? allowedMachineIds;
 
   @override
   State<MachineFleetOverviewPage> createState() =>
@@ -88,12 +93,23 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
 
   bool _isMachineAllowed(Map<String, dynamic> machine) {
     final allowedMachineCodes = widget.allowedMachineCodes;
-    if (allowedMachineCodes == null) {
+    final allowedMachineIds = widget.allowedMachineIds;
+    if (allowedMachineCodes == null && allowedMachineIds == null) {
       return true;
     }
 
+    final rawId = machine['id'] ?? machine['machineId'];
+    final machineId = rawId is int
+        ? rawId
+        : int.tryParse(rawId?.toString() ?? '');
+    if (allowedMachineIds != null &&
+        allowedMachineIds.isNotEmpty &&
+        machineId != null) {
+      return allowedMachineIds.contains(machineId);
+    }
+
     final code = (machine['code'] ?? machine['machineCode'] ?? '').toString();
-    return allowedMachineCodes.contains(code);
+    return allowedMachineCodes?.contains(code) ?? false;
   }
 
   Color getStatusColor(String status) {
