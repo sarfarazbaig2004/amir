@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../config/app_config.dart';
 import 'services/machine_service.dart';
 
@@ -72,6 +74,9 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
         return Colors.red.shade700;
       case 'YELLOW':
         return Colors.amber.shade700;
+      case 'GREY':
+      case 'GRAY':
+        return Colors.grey.shade700;
       case 'GREEN':
       default:
         return Colors.green.shade700;
@@ -85,6 +90,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
         return Colors.orange.shade700;
       case 'IDLE':
         return Colors.blue.shade700;
+      case 'OFFLINE':
       case 'OFF':
       default:
         return Colors.grey.shade800;
@@ -197,6 +203,44 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                 fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildLocationCard(Map<String, dynamic>? data) {
+    final gpsFix = data?['gpsFix'] == true;
+    final gpsLat = data?['gpsLat'];
+    final gpsLng = data?['gpsLng'];
+    final mapUrl = data?['mapUrl']?.toString();
+
+    if (!gpsFix || mapUrl == null || mapUrl.isEmpty) {
+      return buildShellCard(
+        title: 'GPS Location',
+        child: const Text(
+          'GPS location not available',
+          style: TextStyle(fontSize: 16, color: Colors.black54),
+        ),
+      );
+    }
+
+    return buildShellCard(
+      title: 'GPS Location',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          buildMetricRow('GPS Status', 'Fixed', bold: true),
+          buildMetricRow('Latitude', '$gpsLat'),
+          buildMetricRow('Longitude', '$gpsLng'),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () async {
+              final uri = Uri.parse(mapUrl);
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            },
+            icon: const Icon(Icons.location_on),
+            label: const Text('View Location'),
           ),
         ],
       ),
@@ -349,8 +393,8 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: const [
+        const Row(
+          children: [
             Icon(Icons.show_chart, size: 18),
             SizedBox(width: 8),
             Text(
@@ -420,7 +464,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'MEMCO Machine Overview',
+                        'QUIK IoT | MEMCO',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -519,7 +563,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     final weldingVoltage = data?['weldingVoltage']?.toString() ?? '0';
 
     final inputVoltage = data?['inputVoltage'] as Map<String, dynamic>? ?? {};
-    final temperature = data?['temperature'] as Map<String, dynamic>? ?? {};
+    final temperatures = data?['temperatures'] as Map<String, dynamic>? ?? {};
     final alarms = data?['alarms'] as List<dynamic>? ?? [];
     final warnings = data?['warnings'] as List<dynamic>? ?? [];
     final trend = data?['trend'] as List<dynamic>? ?? [];
@@ -527,7 +571,7 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
     return Scaffold(
       backgroundColor: const Color(0xfff4f6f8),
       appBar: AppBar(
-        title: const Text('MEMCO Dashboard'),
+        title: const Text('QUIK IoT | MEMCO'),
         actions: [
           IconButton(
             onPressed: () => fetchOverview(),
@@ -623,21 +667,22 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                             ],
                           ),
                         ),
+                        buildLocationCard(data),
                         buildShellCard(
                           title: 'Temperature',
                           child: Column(
                             children: [
                               buildMetricRow(
                                 'Trafo Core Temperature',
-                                '${temperature['trafoCore'] ?? 0}',
+                                '${temperatures['trafoCore'] ?? 0}',
                               ),
                               buildMetricRow(
                                 'IGBT Temperature',
-                                '${temperature['igbt'] ?? 0}',
+                                '${temperatures['igbt'] ?? 0}',
                               ),
                               buildMetricRow(
                                 'Heat Sync Temperature',
-                                '${temperature['heatSync'] ?? 0}',
+                                '${temperatures['heatSync'] ?? 0}',
                               ),
                               const SizedBox(height: 12),
                               Wrap(
@@ -647,17 +692,17 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
                                 children: [
                                   buildTempGauge(
                                     'Trafo',
-                                    '${temperature['trafoCore'] ?? 0}',
+                                    '${temperatures['trafoCore'] ?? 0}',
                                     Colors.orange,
                                   ),
                                   buildTempGauge(
                                     'IGBT',
-                                    '${temperature['igbt'] ?? 0}',
+                                    '${temperatures['igbt'] ?? 0}',
                                     Colors.red,
                                   ),
                                   buildTempGauge(
                                     'Heat Sync',
-                                    '${temperature['heatSync'] ?? 0}',
+                                    '${temperatures['heatSync'] ?? 0}',
                                     Colors.deepOrange,
                                   ),
                                 ],

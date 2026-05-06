@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../config/app_config.dart';
 import '../services/machine_service.dart';
 import 'machine_overview_page.dart';
 
 class MachineFleetOverviewPage extends StatefulWidget {
-  const MachineFleetOverviewPage({super.key});
+  const MachineFleetOverviewPage({super.key, this.allowedMachineCodes});
+
+  final Set<String>? allowedMachineCodes;
 
   @override
   State<MachineFleetOverviewPage> createState() =>
@@ -47,7 +50,9 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       final data = await MachineService.getFleetOverview();
       if (!mounted) return;
 
-      final sortedMachines = List<Map<String, dynamic>>.from(data);
+      final sortedMachines = List<Map<String, dynamic>>.from(
+        data,
+      ).where(_isMachineAllowed).toList();
 
       sortedMachines.sort((a, b) {
         const priority = {'RED': 0, 'YELLOW': 1, 'GREEN': 2};
@@ -79,6 +84,16 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       default:
         return Colors.grey.shade600;
     }
+  }
+
+  bool _isMachineAllowed(Map<String, dynamic> machine) {
+    final allowedMachineCodes = widget.allowedMachineCodes;
+    if (allowedMachineCodes == null) {
+      return true;
+    }
+
+    final code = (machine['code'] ?? machine['machineCode'] ?? '').toString();
+    return allowedMachineCodes.contains(code);
   }
 
   Color getStatusColor(String status) {
@@ -307,16 +322,36 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
             spacing: 28,
             runSpacing: 28,
             alignment: WrapAlignment.start,
-            children: machines.map((machine) {
-              return _buildMachineCard(context, machine);
-            }).toList(),
+            children: machines.isEmpty
+                ? [_buildNoMachineAccessCard()]
+                : machines.map((machine) {
+                    return _buildMachineCard(context, machine);
+                  }).toList(),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildNoMachineAccessCard() {
+    return Container(
+      width: 520,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: const Text(
+        'No machines are enabled for this customer.',
+        style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
   Widget _buildMachineCard(BuildContext context, Map<String, dynamic> machine) {
+    final machineCode = (machine['code'] ?? AppConfig.defaultMachineId)
+        .toString();
     final health = (machine['health'] ?? 'GREEN').toString();
     final status = (machine['status'] ?? 'IDLE').toString();
     final statusColor = getStatusColor(status);
@@ -327,7 +362,9 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const MachineOverviewPage()),
+          MaterialPageRoute(
+            builder: (_) => MachineOverviewPage(machineId: machineCode),
+          ),
         );
       },
       child: SizedBox(
@@ -355,7 +392,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      (machine['code'] ?? '').toString(),
+                      machineCode,
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
@@ -408,7 +445,8 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const MachineOverviewPage(),
+                            builder: (_) =>
+                                MachineOverviewPage(machineId: machineCode),
                           ),
                         );
                       },

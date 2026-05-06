@@ -4,12 +4,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../config/app_config.dart';
+import 'auth_service.dart';
 
 class MachineService {
   static const Duration _requestTimeout = Duration(seconds: 10);
-  static const Map<String, String> _defaultHeaders = {
-    'Accept': 'application/json',
-  };
 
   static Future<Map<String, dynamic>> getMachineOverview(
     String machineId,
@@ -23,7 +21,7 @@ class MachineService {
       final response = await http
           .get(
             _machineOverviewUri(normalizedMachineId),
-            headers: _defaultHeaders,
+            headers: AuthService.authorizedHeaders,
           )
           .timeout(_requestTimeout);
 
@@ -47,15 +45,91 @@ class MachineService {
     }
   }
 
+  static Future<Map<String, dynamic>> getMachineDailyProduction(
+    String machineId,
+    String date,
+  ) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .get(
+            _machineDailyProductionUri(normalizedMachineId, date),
+            headers: AuthService.authorizedHeaders,
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Daily production endpoint was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Daily production request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the daily production API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Daily production response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<List<dynamic>> getMachineProductionTimeline(
+    String machineId,
+    String date,
+  ) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .get(
+            _machineProductionTimelineUri(normalizedMachineId, date),
+            headers: AuthService.authorizedHeaders,
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeFlexibleListResponse(
+        response,
+        listKeys: const ['timeline', 'items', 'data', 'events'],
+        notFoundMessage:
+            'Production timeline endpoint was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Production timeline request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the production timeline API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Production timeline response was not valid JSON.',
+      );
+    }
+  }
+
   static Future<List<dynamic>> getFleetOverview() async {
     try {
       final response = await http
-          .get(_fleetOverviewUri, headers: _defaultHeaders)
+          .get(_fleetOverviewUri, headers: AuthService.authorizedHeaders)
           .timeout(_requestTimeout);
 
       return _decodeListResponse(
         response,
-        notFoundMessage: 'Fleet overview endpoint was not found on the backend.',
+        notFoundMessage:
+            'Fleet overview endpoint was not found on the backend.',
       );
     } on TimeoutException {
       throw const MachineServiceException(
@@ -72,13 +146,235 @@ class MachineService {
     }
   }
 
+  static Future<List<dynamic>> getAdminCustomers() async {
+    try {
+      final response = await http
+          .get(_adminCustomersUri, headers: AuthService.authorizedHeaders)
+          .timeout(_requestTimeout);
+
+      return _decodeListResponse(
+        response,
+        notFoundMessage:
+            'Admin customers endpoint was not found on the backend.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Admin customers request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the admin customers API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Admin customers response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> createAdminCustomer({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            _adminCustomersUri,
+            headers: AuthService.authorizedJsonHeaders,
+            body: jsonEncode({
+              'name': name.trim(),
+              'email': email.trim(),
+              'password': password,
+            }),
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage: 'Customer creation endpoint was not found.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Customer creation request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the customer creation API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Customer creation response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateAdminCustomerAccess({
+    required String customerId,
+    required Set<String> modules,
+    required Set<int> machineIds,
+    Set<String> features = const {},
+    Set<String> parameters = const {},
+    Set<String> premiumFeatures = const {},
+    Set<String> buttons = const {},
+    Set<String> reports = const {},
+  }) async {
+    try {
+      final response = await http
+          .put(
+            _adminCustomerAccessUri(customerId),
+            headers: AuthService.authorizedJsonHeaders,
+            body: jsonEncode({
+              'modules': modules.toList()..sort(),
+              'machineIds': machineIds.toList()..sort(),
+              'features': features.toList()..sort(),
+              'parameters': parameters.toList()..sort(),
+              'premiumFeatures': premiumFeatures.toList()..sort(),
+              'buttons': buttons.toList()..sort(),
+              'reports': reports.toList()..sort(),
+            }),
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Access update endpoint was not found for customer $customerId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Access update request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the access update API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Access update response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<List<dynamic>> getLiveWelderSessions() async {
+    try {
+      final response = await http
+          .get(_liveWelderSessionsUri, headers: AuthService.authorizedHeaders)
+          .timeout(_requestTimeout);
+
+      return _decodeListResponse(
+        response,
+        notFoundMessage:
+            'Live welder session report endpoint was not found on the backend.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Live welder session report request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the live welder session report API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Live welder session report response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<void> resetJobData(String machineId) async {
+    await _postMachineAction(
+      machineId: machineId,
+      actionPath: 'reset-job',
+      actionLabel: 'reset job data',
+    );
+  }
+
+  static Future<void> resetMachineLifetimeData(String machineId) async {
+    await _postMachineAction(
+      machineId: machineId,
+      actionPath: 'reset-machine',
+      actionLabel: 'reset machine lifetime data',
+    );
+  }
+
+  static Future<void> _postMachineAction({
+    required String machineId,
+    required String actionPath,
+    required String actionLabel,
+  }) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .post(
+            _machineActionUri(normalizedMachineId, actionPath),
+            headers: AuthService.authorizedJsonHeaders,
+            body: '{}',
+          )
+          .timeout(_requestTimeout);
+
+      _throwForStatus(
+        response,
+        notFoundMessage:
+            'Backend endpoint to $actionLabel was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw MachineServiceException(
+        'Machine $actionLabel request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the machine $actionLabel API: ${error.message}',
+      );
+    }
+  }
+
   static Uri _machineOverviewUri(String machineId) {
     final encodedMachineId = Uri.encodeComponent(machineId);
-    return Uri.parse('${AppConfig.baseUrl}/api/machine/$encodedMachineId/overview');
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/machine/$encodedMachineId/overview',
+    );
+  }
+
+  static Uri _machineDailyProductionUri(String machineId, String date) {
+    final encodedMachineId = Uri.encodeComponent(machineId);
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/machine/$encodedMachineId/production/daily',
+    ).replace(queryParameters: {'date': date});
+  }
+
+  static Uri _machineProductionTimelineUri(String machineId, String date) {
+    final encodedMachineId = Uri.encodeComponent(machineId);
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/machine/$encodedMachineId/production/timeline',
+    ).replace(queryParameters: {'date': date});
+  }
+
+  static Uri _machineActionUri(String machineId, String actionPath) {
+    final encodedMachineId = Uri.encodeComponent(machineId);
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/machine/$encodedMachineId/$actionPath',
+    );
   }
 
   static Uri get _fleetOverviewUri =>
       Uri.parse('${AppConfig.baseUrl}/api/machines/overview');
+
+  static Uri get _liveWelderSessionsUri =>
+      Uri.parse('${AppConfig.baseUrl}/api/reports/live-welder-sessions');
+
+  static Uri get _adminCustomersUri =>
+      Uri.parse('${AppConfig.baseUrl}/api/admin/customers');
+
+  static Uri _adminCustomerAccessUri(String customerId) {
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/admin/customers/${Uri.encodeComponent(customerId)}/access',
+    );
+  }
 
   static Map<String, dynamic> _decodeMapResponse(
     http.Response response, {
@@ -108,16 +404,44 @@ class MachineService {
     return decodedBody;
   }
 
+  static List<dynamic> _decodeFlexibleListResponse(
+    http.Response response, {
+    required List<String> listKeys,
+    required String notFoundMessage,
+  }) {
+    _throwForStatus(response, notFoundMessage: notFoundMessage);
+
+    final decodedBody = jsonDecode(response.body);
+    if (decodedBody is List) {
+      return decodedBody;
+    }
+
+    if (decodedBody is Map) {
+      for (final key in listKeys) {
+        final value = decodedBody[key];
+        if (value is List) {
+          return value;
+        }
+      }
+    }
+
+    throw const FormatException('Expected a JSON array.');
+  }
+
   static void _throwForStatus(
     http.Response response, {
     required String notFoundMessage,
   }) {
-    if (response.statusCode == 200) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
       return;
     }
 
     if (response.statusCode == 404) {
       throw MachineServiceException(notFoundMessage);
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      AuthService.handleAuthFailure();
     }
 
     final apiMessage = _extractApiMessage(response.body);
