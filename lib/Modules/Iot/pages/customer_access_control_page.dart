@@ -24,8 +24,10 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
   List<Map<String, dynamic>> _machines = [];
   bool _isLoadingCustomers = true;
   bool _isLoadingMachines = true;
+  bool _isLoadingAccess = false;
   bool _isSavingAccess = false;
   bool _isCreatingCustomer = false;
+  int _accessLoadGeneration = 0;
   String _message = '';
 
   @override
@@ -38,27 +40,19 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
   Future<void> _loadCustomers() async {
     try {
       final data = await MachineService.getAdminCustomers();
+      debugPrint('[access] reload payload: $data');
       final customers = data
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .where(_isBackendCustomerRecord)
           .map(_customerFromBackend)
           .toList();
-      final accessByUserId = <String, CustomerAccess>{};
-      for (final item in data.whereType<Map>()) {
-        final map = Map<String, dynamic>.from(item);
-        if (!_isBackendCustomerRecord(map)) continue;
-        final customer = _customerFromBackend(map);
-        accessByUserId[customer.id] = _accessFromBackendUser(map, customer);
-      }
 
       if (!mounted) return;
 
       setState(() {
         _customers = customers;
-        _accessByUserId
-          ..clear()
-          ..addAll(accessByUserId);
+        _accessByUserId.clear();
         _selectedCustomer = null;
         _draftAccess = const CustomerAccess(
           customerId: '',
@@ -93,7 +87,13 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
       final data = await MachineService.getFleetOverview();
       if (!mounted) return;
       setState(() {
-        _machines = List<Map<String, dynamic>>.from(data);
+        _machines = data
+    .whereType<Map>()
+    .map((item) => Map<String, dynamic>.from(item))
+    .toList();
+
+debugPrint('[access] fleet machines loaded: ${_machines.length}');
+        _hydrateAccessMachineCodes();
         _isLoadingMachines = false;
       });
     } on MachineServiceException catch (error) {
@@ -105,20 +105,43 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
     }
   }
 
-  void _selectCustomer(CustomerAccount customer) {
+  Future<void> _selectCustomer(CustomerAccount customer) async {
     debugPrint('[access] selected customer email: ${customer.email}');
+    final loadGeneration = ++_accessLoadGeneration;
 
     setState(() {
       _selectedCustomer = customer;
-      _draftAccess =
-          _accessByUserId[customer.id] ??
-          CustomerAccess(
-            customerId: customer.id,
-            enabledModules: const {},
-            allowedMachineCodes: const {},
-          );
-      _message = '';
+      _draftAccess = _emptyAccessForCustomer(customer);
+      _isLoadingAccess = true;
+      _message = 'Loading persisted access for ${customer.email}...';
     });
+
+    try {
+      final response = await MachineService.getAdminCustomerAccessByEmail(
+        customer.email,
+      );
+      if (!mounted || loadGeneration != _accessLoadGeneration) return;
+
+      final access = _hydrateAccessMachineCodesForAccess(
+        _accessFromBackendUser(response, customer),
+      );
+
+      setState(() {
+        _accessByUserId[customer.id] = access;
+        _draftAccess = access;
+        _isLoadingAccess = false;
+        _message = '';
+      });
+    } on MachineServiceException catch (error) {
+      if (!mounted || loadGeneration != _accessLoadGeneration) return;
+
+      setState(() {
+        _accessByUserId.remove(customer.id);
+        _draftAccess = _emptyAccessForCustomer(customer);
+        _isLoadingAccess = false;
+        _message = error.message;
+      });
+    }
   }
 
   void _toggleModule(String moduleKey, bool enabled) {
@@ -136,14 +159,25 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
 
   void _toggleMachine(String machineCode, bool enabled) {
     final machines = Set<String>.from(_draftAccess.allowedMachineCodes);
+    final machineIds = Set<int>.from(_draftAccess.allowedMachineIds);
+    final machineId = _machineIdForCode(machineCode);
     if (enabled) {
       machines.add(machineCode);
+      if (machineId != null) {
+        machineIds.add(machineId);
+      }
     } else {
       machines.remove(machineCode);
+      if (machineId != null) {
+        machineIds.remove(machineId);
+      }
     }
 
     setState(() {
-      _draftAccess = _draftAccess.copyWith(allowedMachineCodes: machines);
+      _draftAccess = _draftAccess.copyWith(
+        allowedMachineCodes: machines,
+        allowedMachineIds: machineIds,
+      );
     });
   }
 
@@ -189,14 +223,14 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
     final selectedCustomer = _selectedCustomer;
     if (selectedCustomer == null) return;
 
-    final machineIds = _draftAccess.allowedMachineCodes
-        .map(_machineIdForCode)
-        .whereType<int>()
-        .toSet();
+    final machineIds = _machineIdsForAccess(_draftAccess);
 
     debugPrint('[access] selected customer email: ${selectedCustomer.email}');
     debugPrint('[access] saved modules: ${_draftAccess.enabledModules}');
-    debugPrint('[access] saved machines: $machineIds');
+    debugPrint(
+      '[access] saved machine codes: ${_draftAccess.allowedMachineCodes}',
+    );
+    debugPrint('[access] saved machine ids: $machineIds');
 
     setState(() {
       _isSavingAccess = true;
@@ -204,9 +238,10 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
     });
 
     try {
-      final response = await MachineService.updateAdminCustomerAccess(
-        customerId: selectedCustomer.id,
+      final response = await MachineService.saveAdminCustomerAccessByEmail(
+        email: selectedCustomer.email,
         modules: _draftAccess.enabledModules,
+        machineCodes: _draftAccess.allowedMachineCodes,
         machineIds: machineIds,
         features: _draftAccess.enabledFeatures,
         parameters: _draftAccess.enabledParameters,
@@ -215,14 +250,28 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
         reports: _draftAccess.enabledReports,
       );
       if (!mounted) return;
-      final access = _accessFromBackendUser(response, selectedCustomer);
+      debugPrint('[access] save parsed response payload: $response');
+      final reloadResponse = await MachineService.getAdminCustomerAccessByEmail(
+        selectedCustomer.email,
+      );
+      if (!mounted) return;
+      debugPrint('[access] post-save reload payload: $reloadResponse');
+      final access = _hydrateAccessMachineCodesForAccess(
+        _accessFromBackendUser(reloadResponse, selectedCustomer),
+      );
+      final verified = _accessMatchesDraft(
+        savedAccess: access,
+        draftAccess: _draftAccess,
+        draftMachineIds: machineIds,
+      );
 
       setState(() {
         _accessByUserId[selectedCustomer.id] = access;
         _draftAccess = access;
         _isSavingAccess = false;
-        _message =
-            'Access saved for ${selectedCustomer.name}. Customer will see only selected modules and machines.';
+        _message = verified
+            ? 'Access saved for ${selectedCustomer.name}. Reload verified from backend.'
+            : 'Access saved, but backend reload did not match the selected access.';
       });
     } on MachineServiceException catch (error) {
       if (!mounted) return;
@@ -613,9 +662,17 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
                 ),
               ),
               FilledButton.icon(
-                onPressed: _isSavingAccess ? null : _saveAccess,
+                onPressed: (_isSavingAccess || _isLoadingAccess)
+                    ? null
+                    : _saveAccess,
                 icon: const Icon(Icons.save_outlined, size: 18),
-                label: Text(_isSavingAccess ? 'Saving...' : 'Save Access'),
+                label: Text(
+                  _isSavingAccess
+                      ? 'Saving...'
+                      : _isLoadingAccess
+                      ? 'Loading...'
+                      : 'Save Access',
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF0F172A),
                   foregroundColor: Colors.white,
@@ -632,7 +689,7 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
             Text(
               _message,
               style: TextStyle(
-                color: _message.startsWith('Access saved')
+                color: _message.startsWith('Access saved for')
                     ? const Color(0xFF047857)
                     : const Color(0xFFB91C1C),
                 fontWeight: FontWeight.w800,
@@ -1232,6 +1289,96 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
     return null;
   }
 
+  String? _machineCodeForId(int machineId) {
+    for (final machine in _machines) {
+      final id = machine['id'] ?? machine['machineId'];
+      final parsedId = id is int ? id : int.tryParse(id?.toString() ?? '');
+      if (parsedId == machineId) {
+        final code = _machineCode(machine).trim();
+        return code.isEmpty ? null : code;
+      }
+    }
+    return null;
+  }
+
+  CustomerAccess _hydrateAccessMachineCodesForAccess(CustomerAccess access) {
+    final machineCodes = Set<String>.from(access.allowedMachineCodes);
+
+    for (final machineId in access.allowedMachineIds) {
+      final code = _machineCodeForId(machineId);
+      if (code != null) {
+        machineCodes.add(code);
+      }
+    }
+
+    if (machineCodes.length == access.allowedMachineCodes.length) {
+      return access;
+    }
+
+    return access.copyWith(allowedMachineCodes: machineCodes);
+  }
+
+  void _hydrateAccessMachineCodes() {
+    if (_machines.isEmpty) return;
+
+    _accessByUserId.updateAll(
+      (_, access) => _hydrateAccessMachineCodesForAccess(access),
+    );
+
+    _draftAccess = _hydrateAccessMachineCodesForAccess(_draftAccess);
+  }
+
+  Set<int> _machineIdsForAccess(CustomerAccess access) {
+    final machineIds = Set<int>.from(access.allowedMachineIds);
+
+    for (final machineCode in access.allowedMachineCodes) {
+      final machineId = _machineIdForCode(machineCode);
+      if (machineId != null) {
+        machineIds.add(machineId);
+      }
+    }
+
+    return machineIds;
+  }
+
+  bool _accessMatchesDraft({
+    required CustomerAccess savedAccess,
+    required CustomerAccess draftAccess,
+    required Set<int> draftMachineIds,
+  }) {
+    return _setEquals(savedAccess.enabledModules, draftAccess.enabledModules) &&
+        _setEquals(
+          savedAccess.allowedMachineCodes,
+          draftAccess.allowedMachineCodes,
+        ) &&
+        _setEquals(savedAccess.allowedMachineIds, draftMachineIds) &&
+        _setEquals(savedAccess.enabledFeatures, draftAccess.enabledFeatures) &&
+        _setEquals(
+          savedAccess.enabledParameters,
+          draftAccess.enabledParameters,
+        ) &&
+        _setEquals(
+          savedAccess.enabledPremiumFeatures,
+          draftAccess.enabledPremiumFeatures,
+        ) &&
+        _setEquals(savedAccess.enabledButtons, draftAccess.enabledButtons) &&
+        _setEquals(savedAccess.enabledReports, draftAccess.enabledReports);
+  }
+
+  bool _setEquals<T>(Set<T> left, Set<T> right) {
+    if (left.length != right.length) return false;
+    return left.containsAll(right);
+  }
+
+  CustomerAccess _emptyAccessForCustomer(CustomerAccount customer) {
+    return CustomerAccess(
+      customerId: customer.id,
+      enabledModules: const {},
+      allowedMachineCodes: const {},
+      allowedMachineIds: const {},
+    );
+  }
+
   CustomerAccount _customerFromBackend(Map<String, dynamic> user) {
     final nestedUser = user['user'] is Map
         ? Map<String, dynamic>.from(user['user'] as Map)
@@ -1276,6 +1423,9 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
     CustomerAccount customer,
   ) {
     final accessJson = _accessJsonFromBackend(data);
+    debugPrint(
+      '[access] parsed reload payload for ${customer.email}: $accessJson',
+    );
     final access = CustomerAccessService.accessFromBackend(
       email: customer.email,
       customerId: customer.id,
@@ -1300,6 +1450,11 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
           data['modules'] ?? data['allowedModules'] ?? data['moduleAccess'],
       'machines':
           data['machines'] ?? data['allowedMachines'] ?? data['machineAccess'],
+      'machineIds':
+          data['machineIds'] ??
+          data['allowedMachineIds'] ??
+          data['machineIdAccess'] ??
+          data['machineAccess'],
       'allMachines': data['allMachines'],
       'features':
           data['features'] ?? data['allowedFeatures'] ?? data['featureAccess'],
@@ -1309,6 +1464,8 @@ class _CustomerAccessControlPageState extends State<CustomerAccessControlPage> {
           data['parameterAccess'],
       'premiumFeatures':
           data['premiumFeatures'] ?? data['allowedPremiumFeatures'],
+      'buttons': data['buttons'] ?? data['allowedButtons'],
+      'reports': data['reports'] ?? data['allowedReports'],
     };
   }
 }

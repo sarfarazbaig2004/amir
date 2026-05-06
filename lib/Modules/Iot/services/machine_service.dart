@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../config/app_config.dart';
@@ -213,28 +214,37 @@ class MachineService {
     required String customerId,
     required Set<String> modules,
     required Set<int> machineIds,
+    Set<String> machineCodes = const {},
     Set<String> features = const {},
     Set<String> parameters = const {},
     Set<String> premiumFeatures = const {},
     Set<String> buttons = const {},
     Set<String> reports = const {},
   }) async {
+    final payload = {
+      'modules': modules.toList()..sort(),
+      'machines': machineCodes.toList()..sort(),
+      'machineIds': machineIds.toList()..sort(),
+      'features': features.toList()..sort(),
+      'parameters': parameters.toList()..sort(),
+      'premiumFeatures': premiumFeatures.toList()..sort(),
+      'buttons': buttons.toList()..sort(),
+      'reports': reports.toList()..sort(),
+    };
+    debugPrint('[access] save payload for customer $customerId: $payload');
+
     try {
       final response = await http
           .put(
-            _adminCustomerAccessUri(customerId),
+            _legacyAdminCustomerAccessUri(customerId),
             headers: AuthService.authorizedJsonHeaders,
-            body: jsonEncode({
-              'modules': modules.toList()..sort(),
-              'machineIds': machineIds.toList()..sort(),
-              'features': features.toList()..sort(),
-              'parameters': parameters.toList()..sort(),
-              'premiumFeatures': premiumFeatures.toList()..sort(),
-              'buttons': buttons.toList()..sort(),
-              'reports': reports.toList()..sort(),
-            }),
+            body: jsonEncode(payload),
           )
           .timeout(_requestTimeout);
+      debugPrint(
+        '[access] API response ${response.statusCode} for customer '
+        '$customerId: ${response.body}',
+      );
 
       return _decodeMapResponse(
         response,
@@ -252,6 +262,108 @@ class MachineService {
     } on FormatException {
       throw const MachineServiceException(
         'Access update response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> getAdminCustomerAccessByEmail(
+    String email,
+  ) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      throw const MachineServiceException('Customer email is required.');
+    }
+
+    try {
+      final response = await http
+          .get(
+            _adminCustomerAccessByEmailUri(normalizedEmail),
+            headers: AuthService.authorizedHeaders,
+          )
+          .timeout(_requestTimeout);
+      debugPrint(
+        '[access] reload payload response ${response.statusCode} for '
+        '$normalizedEmail: ${response.body}',
+      );
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Customer access endpoint was not found for $normalizedEmail.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Customer access load request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the customer access API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Customer access response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> saveAdminCustomerAccessByEmail({
+    required String email,
+    required Set<String> modules,
+    required Set<String> machineCodes,
+    required Set<int> machineIds,
+    Set<String> features = const {},
+    Set<String> parameters = const {},
+    Set<String> premiumFeatures = const {},
+    Set<String> buttons = const {},
+    Set<String> reports = const {},
+  }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      throw const MachineServiceException('Customer email is required.');
+    }
+
+    final payload = {
+      'email': normalizedEmail,
+      'modules': modules.toList()..sort(),
+      'machines': machineCodes.toList()..sort(),
+      'machineIds': machineIds.toList()..sort(),
+      'features': features.toList()..sort(),
+      'parameters': parameters.toList()..sort(),
+      'premiumFeatures': premiumFeatures.toList()..sort(),
+      'buttons': buttons.toList()..sort(),
+      'reports': reports.toList()..sort(),
+    };
+    debugPrint('[access] save payload for $normalizedEmail: $payload');
+
+    try {
+      final response = await http
+          .post(
+            _adminCustomerAccessUri,
+            headers: AuthService.authorizedJsonHeaders,
+            body: jsonEncode(payload),
+          )
+          .timeout(_requestTimeout);
+      debugPrint(
+        '[access] API response ${response.statusCode} for '
+        '$normalizedEmail: ${response.body}',
+      );
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Customer access save endpoint was not found for $normalizedEmail.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Customer access save request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the customer access save API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Customer access save response was not valid JSON.',
       );
     }
   }
@@ -370,7 +482,14 @@ class MachineService {
   static Uri get _adminCustomersUri =>
       Uri.parse('${AppConfig.baseUrl}/api/admin/customers');
 
-  static Uri _adminCustomerAccessUri(String customerId) {
+  static Uri get _adminCustomerAccessUri =>
+      Uri.parse('${AppConfig.baseUrl}/api/admin/customer-access');
+
+  static Uri _adminCustomerAccessByEmailUri(String email) {
+    return _adminCustomerAccessUri.replace(queryParameters: {'email': email});
+  }
+
+  static Uri _legacyAdminCustomerAccessUri(String customerId) {
     return Uri.parse(
       '${AppConfig.baseUrl}/api/admin/customers/${Uri.encodeComponent(customerId)}/access',
     );
