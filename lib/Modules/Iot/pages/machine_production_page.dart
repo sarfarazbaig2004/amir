@@ -45,6 +45,18 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   @override
+  void didUpdateWidget(covariant MachineProductionPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.machineId != widget.machineId) {
+      _overviewData = null;
+      _dailyProductionData = null;
+      _productionTimeline = [];
+      _loadOverview();
+      _loadProductionData();
+    }
+  }
+
+  @override
   void dispose() {
     _productionClockTimer?.cancel();
     super.dispose();

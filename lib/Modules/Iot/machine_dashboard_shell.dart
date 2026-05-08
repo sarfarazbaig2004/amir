@@ -28,52 +28,55 @@ class MachineDashboardShell extends StatefulWidget {
 
 class _MachineDashboardShellState extends State<MachineDashboardShell> {
   int _selectedIndex = 0;
+  String? _selectedMachineId;
 
   List<_NavItem> get _items {
+    final selectedMachineId = _effectiveMachineId;
+
     if (widget.user.isCustomer) {
       final access =
           widget.access ??
           CustomerAccessService.accessForEmail(widget.user.email);
-      return _customerItems(access);
+      return _customerItems(access, selectedMachineId);
     }
 
-    return const [
+    return [
       _NavItem(
         title: 'Machine Fleet Overview',
         label: 'Fleet',
         icon: Icons.grid_view_outlined,
         selectedIcon: Icons.grid_view,
-        page: MachineFleetOverviewPage(),
+        page: MachineFleetOverviewPage(onMachineSelected: _selectMachine),
       ),
       _NavItem(
         title: 'Machine Overview',
         label: 'Overview',
         icon: Icons.home_outlined,
         selectedIcon: Icons.home,
-        page: MachineOverviewPage(),
+        page: MachineOverviewPage(machineId: selectedMachineId),
       ),
       _NavItem(
         title: 'Machine Production',
         label: 'Production',
         icon: Icons.factory_outlined,
         selectedIcon: Icons.factory,
-        page: MachineProductionPage(),
+        page: MachineProductionPage(machineId: selectedMachineId),
       ),
       _NavItem(
         title: 'Machine Engineering Data',
         label: 'Engineering',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        page: MachineEngineeringPage(),
+        page: MachineEngineeringPage(machineId: selectedMachineId),
       ),
       _NavItem(
         title: 'Logger Calibration',
         label: 'Calibration',
         icon: Icons.tune_outlined,
         selectedIcon: Icons.tune,
-        page: LoggerCalibrationPage(),
+        page: LoggerCalibrationPage(machineId: selectedMachineId),
       ),
-      _NavItem(
+      const _NavItem(
         title: 'Customer Access Control',
         label: 'Access',
         icon: Icons.admin_panel_settings_outlined,
@@ -83,7 +86,10 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
     ];
   }
 
-  List<_NavItem> _customerItems(CustomerAccess access) {
+  List<_NavItem> _customerItems(
+    CustomerAccess access,
+    String? selectedMachineId,
+  ) {
     final items = <_NavItem>[];
 
     if (access.hasModule('reports')) {
@@ -119,6 +125,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
             allowedMachineIds: access.allMachines
                 ? null
                 : access.allowedMachineIds,
+            onMachineSelected: _selectMachine,
           ),
         ),
       );
@@ -132,7 +139,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
           icon: Icons.home_outlined,
           selectedIcon: Icons.home,
           page: MachineOverviewPage(
-            machineId: _firstAllowedMachineId(access),
+            machineId: selectedMachineId,
             access: access,
           ),
         ),
@@ -146,9 +153,31 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
           label: 'Production',
           icon: Icons.factory_outlined,
           selectedIcon: Icons.factory,
-          page: MachineProductionPage(
-            machineId: _firstAllowedMachineId(access),
-          ),
+          page: MachineProductionPage(machineId: selectedMachineId),
+        ),
+      );
+    }
+
+    if (access.hasPremiumFeature('engineeringSetpoints')) {
+      items.add(
+        _NavItem(
+          title: 'Machine Engineering Data',
+          label: 'Engineering',
+          icon: Icons.settings_outlined,
+          selectedIcon: Icons.settings,
+          page: MachineEngineeringPage(machineId: selectedMachineId),
+        ),
+      );
+    }
+
+    if (access.hasPremiumFeature('calibrationAccess')) {
+      items.add(
+        _NavItem(
+          title: 'Logger Calibration',
+          label: 'Calibration',
+          icon: Icons.tune_outlined,
+          selectedIcon: Icons.tune,
+          page: LoggerCalibrationPage(machineId: selectedMachineId),
         ),
       );
     }
@@ -166,6 +195,36 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
     }
 
     return items;
+  }
+
+  String? get _effectiveMachineId {
+    final selectedMachineId = _selectedMachineId;
+    if (selectedMachineId != null && selectedMachineId.isNotEmpty) {
+      return selectedMachineId;
+    }
+
+    if (widget.user.isCustomer) {
+      final access =
+          widget.access ??
+          CustomerAccessService.accessForEmail(widget.user.email);
+      return _firstAllowedMachineId(access);
+    }
+
+    return null;
+  }
+
+  void _selectMachine(String machineId) {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) return;
+
+    final items = _items;
+    final overviewIndex = items.indexWhere((item) => item.label == 'Overview');
+    setState(() {
+      _selectedMachineId = normalizedMachineId;
+      if (overviewIndex != -1) {
+        _selectedIndex = overviewIndex;
+      }
+    });
   }
 
   String? _firstAllowedMachineId(CustomerAccess access) {

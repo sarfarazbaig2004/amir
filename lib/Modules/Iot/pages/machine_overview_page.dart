@@ -38,6 +38,15 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   @override
+  void didUpdateWidget(covariant MachineOverviewPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.machineId != widget.machineId) {
+      overviewData = null;
+      _loadOverview();
+    }
+  }
+
+  @override
   void dispose() {
     refreshTimer?.cancel();
     super.dispose();
@@ -98,9 +107,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
     }
 
     try {
-      final data = await MachineService.getMachineOverview(
-        widget.machineId ?? AppConfig.defaultMachineId,
-      );
+      final data = await MachineService.getMachineOverview(_activeMachineId);
 
       if (!mounted) return;
 
@@ -118,6 +125,8 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
       });
     }
   }
+
+  String get _activeMachineId => widget.machineId ?? AppConfig.defaultMachineId;
 
   @override
   Widget build(BuildContext context) {

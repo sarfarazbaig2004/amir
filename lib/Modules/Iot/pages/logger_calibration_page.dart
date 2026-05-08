@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import '../../../config/app_config.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/metric_row.dart';
 
 class LoggerCalibrationPage extends StatelessWidget {
-  const LoggerCalibrationPage({super.key});
+  const LoggerCalibrationPage({super.key, this.machineId});
+
+  final String? machineId;
+
+  String get _activeMachineId => machineId ?? AppConfig.defaultMachineId;
 
   @override
   Widget build(BuildContext context) {
     InputDecoration fieldDecoration(String hint) {
       return InputDecoration(
         hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         isDense: true,
       );
     }
@@ -20,15 +23,9 @@ class LoggerCalibrationPage extends StatelessWidget {
     Widget actionButtons() {
       return Row(
         children: [
-          ElevatedButton(
-            onPressed: () {},
-            child: const Text('submit'),
-          ),
+          ElevatedButton(onPressed: () {}, child: const Text('submit')),
           const SizedBox(width: 10),
-          OutlinedButton(
-            onPressed: () {},
-            child: const Text('clear'),
-          ),
+          OutlinedButton(onPressed: () {}, child: const Text('clear')),
         ],
       );
     }
@@ -36,7 +33,17 @@ class LoggerCalibrationPage extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            'Machine $_activeMachineId',
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -65,23 +72,33 @@ class LoggerCalibrationPage extends StatelessWidget {
                       const SizedBox(height: 12),
                       TextField(decoration: fieldDecoration('Point 0 Count')),
                       const SizedBox(height: 12),
-                      TextField(decoration: fieldDecoration('Point 0 Quantity')),
+                      TextField(
+                        decoration: fieldDecoration('Point 0 Quantity'),
+                      ),
                       const SizedBox(height: 12),
                       TextField(decoration: fieldDecoration('Point 1 Count')),
                       const SizedBox(height: 12),
-                      TextField(decoration: fieldDecoration('Point 1 Quantity')),
+                      TextField(
+                        decoration: fieldDecoration('Point 1 Quantity'),
+                      ),
                       const SizedBox(height: 12),
                       TextField(decoration: fieldDecoration('Point 2 Count')),
                       const SizedBox(height: 12),
-                      TextField(decoration: fieldDecoration('Point 2 Quantity')),
+                      TextField(
+                        decoration: fieldDecoration('Point 2 Quantity'),
+                      ),
                       const SizedBox(height: 12),
                       TextField(decoration: fieldDecoration('Point 3 Count')),
                       const SizedBox(height: 12),
-                      TextField(decoration: fieldDecoration('Point 3 Quantity')),
+                      TextField(
+                        decoration: fieldDecoration('Point 3 Quantity'),
+                      ),
                       const SizedBox(height: 12),
                       TextField(decoration: fieldDecoration('Point 4 Count')),
                       const SizedBox(height: 12),
-                      TextField(decoration: fieldDecoration('Point 4 Quantity')),
+                      TextField(
+                        decoration: fieldDecoration('Point 4 Quantity'),
+                      ),
                       const SizedBox(height: 16),
                       actionButtons(),
                     ],

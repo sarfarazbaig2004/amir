@@ -9,10 +9,12 @@ class MachineFleetOverviewPage extends StatefulWidget {
     super.key,
     this.allowedMachineCodes,
     this.allowedMachineIds,
+    this.onMachineSelected,
   });
 
   final Set<String>? allowedMachineCodes;
   final Set<int>? allowedMachineIds;
+  final ValueChanged<String>? onMachineSelected;
 
   @override
   State<MachineFleetOverviewPage> createState() =>
@@ -368,6 +370,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   Widget _buildMachineCard(BuildContext context, Map<String, dynamic> machine) {
     final machineCode = (machine['code'] ?? AppConfig.defaultMachineId)
         .toString();
+    final selectedMachineId = _selectedMachineIdFor(machine);
     final health = (machine['health'] ?? 'GREEN').toString();
     final status = (machine['status'] ?? 'IDLE').toString();
     final statusColor = getStatusColor(status);
@@ -375,14 +378,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
     final borderColor = getCardBorderColor(health);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MachineOverviewPage(machineId: machineCode),
-          ),
-        );
-      },
+      onTap: () => _openMachine(context, selectedMachineId),
       child: SizedBox(
         width: 340,
         child: AnimatedContainer(
@@ -457,15 +453,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                MachineOverviewPage(machineId: machineCode),
-                          ),
-                        );
-                      },
+                      onPressed: () => _openMachine(context, selectedMachineId),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF0F172A),
                         foregroundColor: Colors.white,
@@ -488,6 +476,32 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  String _selectedMachineIdFor(Map<String, dynamic> machine) {
+    final code = (machine['code'] ?? machine['machineCode'] ?? '').toString();
+    if (code.trim().isNotEmpty) {
+      return code;
+    }
+
+    final id = machine['id'] ?? machine['machineId'];
+    final idText = id?.toString() ?? '';
+    return idText.trim().isNotEmpty ? idText : AppConfig.defaultMachineId;
+  }
+
+  void _openMachine(BuildContext context, String machineId) {
+    final onMachineSelected = widget.onMachineSelected;
+    if (onMachineSelected != null) {
+      onMachineSelected(machineId);
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MachineOverviewPage(machineId: machineId),
       ),
     );
   }
