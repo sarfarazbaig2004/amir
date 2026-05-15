@@ -5,6 +5,7 @@ import '../../../config/app_config.dart';
 import '../models/customer_access.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/metric_row.dart';
+import '../widgets/welder_assignment_panel.dart';
 import '../helpers/responsive.dart';
 import '../services/machine_service.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -174,6 +175,12 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                     child: Column(
                       children: [
                         _buildWeldingCard(context),
+                        const SizedBox(height: _gap),
+                        WelderAssignmentPanel(
+                          machineId: _machineCode.isEmpty
+                              ? widget.machineId ?? AppConfig.defaultMachineId
+                              : _machineCode,
+                        ),
                         if (_showAcVoltageTrend) ...[
                           const SizedBox(height: _gap),
                           _buildAcVoltageTrendCard(context),
