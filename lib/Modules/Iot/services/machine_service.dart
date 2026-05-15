@@ -430,6 +430,118 @@ class MachineService {
     }
   }
 
+
+  static Future<Map<String, dynamic>> getEngineeringSetpoints(
+    String machineId,
+  ) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .get(
+            _engineeringSetpointsUri(normalizedMachineId),
+            headers: AuthService.authorizedHeaders,
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Engineering setpoints endpoint was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Engineering setpoints request timed out.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach engineering setpoints API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Engineering setpoints response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> saveEngineeringSetpoints({
+    required String machineId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .post(
+            _engineeringSetpointsUri(normalizedMachineId),
+            headers: AuthService.authorizedJsonHeaders,
+            body: jsonEncode(payload),
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Engineering setpoints save endpoint was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Engineering setpoints save request timed out.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach engineering setpoints save API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Engineering setpoints save response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>> readAllEngineeringSetpoints(
+    String machineId,
+  ) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .post(
+            _engineeringReadAllUri(normalizedMachineId),
+            headers: AuthService.authorizedJsonHeaders,
+            body: '{}',
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Engineering read-all endpoint was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Engineering read-all request timed out.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach engineering read-all API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Engineering read-all response was not valid JSON.',
+      );
+    }
+  }
+
   static Future<void> resetJobData(String machineId) async {
     await _postMachineAction(
       machineId: machineId,
