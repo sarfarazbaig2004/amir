@@ -593,6 +593,21 @@ class MachineService {
     }
   }
 
+
+  static Uri _engineeringSetpointsUri(String machineId) {
+    final encodedMachineId = Uri.encodeComponent(machineId);
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/machine/$encodedMachineId/engineering/setpoints',
+    );
+  }
+
+  static Uri _engineeringReadAllUri(String machineId) {
+    final encodedMachineId = Uri.encodeComponent(machineId);
+    return Uri.parse(
+      '${AppConfig.baseUrl}/api/machine/$encodedMachineId/engineering/read-all',
+    );
+  }
+
   static Uri _machineOverviewUri(String machineId) {
     final encodedMachineId = Uri.encodeComponent(machineId);
     return Uri.parse(
