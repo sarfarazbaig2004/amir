@@ -431,6 +431,67 @@ class MachineService {
   }
 
 
+
+  static Future<List<dynamic>> getActiveWelderAssignments({
+    required String machineId,
+  }) async {
+    final response = await http
+        .get(
+          Uri.parse('${AppConfig.baseUrl}/api/welder-assignments/active')
+              .replace(queryParameters: {'machineId': machineId}),
+          headers: AuthService.authorizedHeaders,
+        )
+        .timeout(_requestTimeout);
+
+    return _decodeListResponse(
+      response,
+      notFoundMessage: 'Active welder assignment endpoint was not found.',
+    );
+  }
+
+  static Future<Map<String, dynamic>> startManualWelderAssignment({
+    required String machineId,
+    required String welderName,
+    required String employeeCode,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('${AppConfig.baseUrl}/api/welder-assignments/manual'),
+          headers: AuthService.authorizedJsonHeaders,
+          body: jsonEncode({
+            'machineId': machineId,
+            'welderName': welderName,
+            'employeeCode': employeeCode,
+            'trackingMode': 'MANUAL',
+          }),
+        )
+        .timeout(_requestTimeout);
+
+    return _decodeMapResponse(
+      response,
+      notFoundMessage: 'Manual welder assignment endpoint was not found.',
+    );
+  }
+
+  static Future<Map<String, dynamic>> endWelderAssignment({
+    required String assignmentId,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse(
+            '${AppConfig.baseUrl}/api/welder-assignments/$assignmentId/end',
+          ),
+          headers: AuthService.authorizedJsonHeaders,
+          body: '{}',
+        )
+        .timeout(_requestTimeout);
+
+    return _decodeMapResponse(
+      response,
+      notFoundMessage: 'End welder assignment endpoint was not found.',
+    );
+  }
+
   static Future<Map<String, dynamic>> getEngineeringSetpoints(
     String machineId,
   ) async {
