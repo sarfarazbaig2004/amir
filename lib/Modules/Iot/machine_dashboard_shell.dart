@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+
 import 'models/auth_user.dart';
 import 'models/customer_access.dart';
-import 'pages/customer_arcing_report_page.dart';
 import 'pages/customer_access_control_page.dart';
+import 'pages/customer_arcing_report_page.dart';
+import 'pages/logger_calibration_page.dart';
+import 'pages/machine_engineering_page.dart';
 import 'pages/machine_fleet_overview_page.dart';
 import 'pages/machine_overview_page.dart';
 import 'pages/machine_production_page.dart';
-import 'pages/machine_engineering_page.dart';
-import 'pages/logger_calibration_page.dart';
 import 'services/customer_access_service.dart';
 
 class MachineDashboardShell extends StatefulWidget {
@@ -35,11 +36,14 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
 
     if (widget.user.isCustomer) {
       final access =
-          widget.access ??
-          CustomerAccessService.accessForEmail(widget.user.email);
+          widget.access ?? CustomerAccessService.accessForEmail(widget.user.email);
       return _customerItems(access, selectedMachineId);
     }
 
+    return _adminItems(selectedMachineId);
+  }
+
+  List<_NavItem> _adminItems(String? selectedMachineId) {
     return [
       _NavItem(
         title: 'Machine Fleet Overview',
@@ -47,6 +51,16 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
         icon: Icons.grid_view_outlined,
         selectedIcon: Icons.grid_view,
         page: MachineFleetOverviewPage(onMachineSelected: _selectMachine),
+      ),
+      const _NavItem(
+        title: 'Welder Arc Reports',
+        label: 'Reports',
+        icon: Icons.assessment_outlined,
+        selectedIcon: Icons.assessment,
+        page: CustomerArcingReportPage(
+          allowedMachineCodes: null,
+          allowedMachineIds: null,
+        ),
       ),
       _NavItem(
         title: 'Machine Overview',
@@ -92,25 +106,6 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
   ) {
     final items = <_NavItem>[];
 
-    if (access.hasModule('reports')) {
-      items.add(
-        _NavItem(
-          title: 'Customer Arcing Report',
-          label: 'Reports',
-          icon: Icons.assessment_outlined,
-          selectedIcon: Icons.assessment,
-          page: CustomerArcingReportPage(
-            allowedMachineCodes: access.allMachines
-                ? null
-                : access.allowedMachineCodes,
-            allowedMachineIds: access.allMachines
-                ? null
-                : access.allowedMachineIds,
-          ),
-        ),
-      );
-    }
-
     if (access.hasModule('fleet')) {
       items.add(
         _NavItem(
@@ -119,13 +114,28 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
           icon: Icons.grid_view_outlined,
           selectedIcon: Icons.grid_view,
           page: MachineFleetOverviewPage(
-            allowedMachineCodes: access.allMachines
-                ? null
-                : access.allowedMachineCodes,
-            allowedMachineIds: access.allMachines
-                ? null
-                : access.allowedMachineIds,
+            allowedMachineCodes:
+                access.allMachines ? null : access.allowedMachineCodes,
+            allowedMachineIds:
+                access.allMachines ? null : access.allowedMachineIds,
             onMachineSelected: _selectMachine,
+          ),
+        ),
+      );
+    }
+
+    if (access.hasModule('reports')) {
+      items.add(
+        _NavItem(
+          title: 'Welder Arc Reports',
+          label: 'Reports',
+          icon: Icons.assessment_outlined,
+          selectedIcon: Icons.assessment,
+          page: CustomerArcingReportPage(
+            allowedMachineCodes:
+                access.allMachines ? null : access.allowedMachineCodes,
+            allowedMachineIds:
+                access.allMachines ? null : access.allowedMachineIds,
           ),
         ),
       );
@@ -205,8 +215,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
 
     if (widget.user.isCustomer) {
       final access =
-          widget.access ??
-          CustomerAccessService.accessForEmail(widget.user.email);
+          widget.access ?? CustomerAccessService.accessForEmail(widget.user.email);
       return _firstAllowedMachineId(access);
     }
 
@@ -219,6 +228,7 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
 
     final items = _items;
     final overviewIndex = items.indexWhere((item) => item.label == 'Overview');
+
     setState(() {
       _selectedMachineId = normalizedMachineId;
       if (overviewIndex != -1) {
@@ -243,123 +253,26 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: CustomerAccessService.version,
-      builder: (context, _, __) {
-        return _buildShell(context);
-      },
+      builder: (context, _, __) => _buildShell(context),
     );
   }
 
   Widget _buildShell(BuildContext context) {
     final items = _items;
+
+    if (_selectedIndex >= items.length) {
+      _selectedIndex = items.length - 1;
+    }
+
     final selectedIndex = _selectedIndex.clamp(0, items.length - 1);
+    final selectedItem = items[selectedIndex];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8FC),
       body: SafeArea(
         child: Row(
           children: [
-            Container(
-              width: 120,
-              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                border: Border(right: BorderSide(color: Color(0xFFE5E7EB))),
-              ),
-              child: NavigationRail(
-                leading: Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Column(
-                    children: const [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Color(0xFF0F172A),
-                        child: Icon(
-                          Icons.wifi_tethering,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'QUIK IoT | MEMCO',
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                trailing: Padding(
-                  padding: const EdgeInsets.only(top: 26),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.circle, size: 10, color: Color(0xFF22C55E)),
-                        SizedBox(width: 8),
-                        Text(
-                          'Live',
-                          style: TextStyle(
-                            color: Color(0xFF0F172A),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                selectedIndex: selectedIndex,
-                onDestinationSelected: (value) {
-                  setState(() {
-                    _selectedIndex = value;
-                  });
-                },
-                backgroundColor: const Color(0xFFF8FAFC),
-                labelType: NavigationRailLabelType.all,
-                minWidth: 96,
-                groupAlignment: -0.95,
-                indicatorColor: const Color(0xFFCBD5E1),
-                selectedIconTheme: const IconThemeData(
-                  color: Color(0xFF0F172A),
-                  size: 28,
-                ),
-                unselectedIconTheme: const IconThemeData(
-                  color: Color(0xFF64748B),
-                  size: 24,
-                ),
-                selectedLabelTextStyle: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-                unselectedLabelTextStyle: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                destinations: items
-                    .map(
-                      (item) => NavigationRailDestination(
-                        icon: Icon(item.icon),
-                        selectedIcon: Icon(item.selectedIcon),
-                        label: Text(item.label),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
+            _buildNavigationRail(items, selectedIndex),
             const VerticalDivider(
               width: 1,
               thickness: 1,
@@ -368,64 +281,168 @@ class _MachineDashboardShellState extends State<MachineDashboardShell> {
             Expanded(
               child: Column(
                 children: [
-                  Container(
-                    height: 76,
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    alignment: Alignment.centerLeft,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(
-                        bottom: BorderSide(color: Color(0xFFE5E7EB)),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            items[selectedIndex].title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              widget.user.name,
-                              style: const TextStyle(
-                                color: Color(0xFF0F172A),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              widget.user.role,
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 14),
-                        OutlinedButton.icon(
-                          onPressed: widget.onLogout,
-                          icon: const Icon(Icons.logout, size: 16),
-                          label: const Text('Logout'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(child: items[selectedIndex].page),
+                  _buildHeader(selectedItem),
+                  Expanded(child: selectedItem.page),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationRail(List<_NavItem> items, int selectedIndex) {
+    return Container(
+      width: 120,
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(right: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
+      child: NavigationRail(
+        leading: const Padding(
+          padding: EdgeInsets.only(bottom: 20),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Color(0xFF0F172A),
+                child: Icon(
+                  Icons.wifi_tethering,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'QUIK IoT | MEMCO',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: Padding(
+          padding: const EdgeInsets.only(top: 26),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.circle, size: 10, color: Color(0xFF22C55E)),
+                SizedBox(width: 8),
+                Text(
+                  'Live',
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (value) {
+          setState(() {
+            _selectedIndex = value;
+          });
+        },
+        backgroundColor: const Color(0xFFF8FAFC),
+        labelType: NavigationRailLabelType.all,
+        minWidth: 96,
+        groupAlignment: -0.95,
+        indicatorColor: const Color(0xFFCBD5E1),
+        selectedIconTheme: const IconThemeData(
+          color: Color(0xFF0F172A),
+          size: 28,
+        ),
+        unselectedIconTheme: const IconThemeData(
+          color: Color(0xFF64748B),
+          size: 24,
+        ),
+        selectedLabelTextStyle: const TextStyle(
+          color: Color(0xFF0F172A),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelTextStyle: const TextStyle(
+          color: Color(0xFF64748B),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        destinations: items
+            .map(
+              (item) => NavigationRailDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.selectedIcon),
+                label: Text(item.label),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildHeader(_NavItem selectedItem) {
+    return Container(
+      height: 76,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      alignment: Alignment.centerLeft,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              selectedItem.title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                widget.user.name,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                widget.user.role,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          OutlinedButton.icon(
+            onPressed: widget.onLogout,
+            icon: const Icon(Icons.logout, size: 16),
+            label: const Text('Logout'),
+          ),
+        ],
       ),
     );
   }
@@ -439,7 +456,10 @@ class _NoAccessPage extends StatelessWidget {
     return const Center(
       child: Text(
         'No modules are enabled for this customer.',
-        style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w800),
+        style: TextStyle(
+          color: Color(0xFF64748B),
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

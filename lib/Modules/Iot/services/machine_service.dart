@@ -8,7 +8,7 @@ import '../../../config/app_config.dart';
 import 'auth_service.dart';
 
 class MachineService {
-  static const Duration _requestTimeout = Duration(seconds: 10);
+  static const Duration _requestTimeout = Duration(seconds: 30);
 
   static Future<Map<String, dynamic>> getMachineOverview(
     String machineId,
@@ -147,6 +147,64 @@ class MachineService {
     }
   }
 
+  static Future<List<dynamic>> getLiveWelderSessions() async {
+    try {
+      final response = await http
+          .get(_fleetOverviewUri, headers: AuthService.authorizedHeaders)
+          .timeout(_requestTimeout);
+
+      final machines = _decodeListResponse(
+        response,
+        notFoundMessage:
+            'Fleet overview endpoint was not found on the backend.',
+      );
+
+      return machines
+          .where((machine) {
+            if (machine is! Map) return false;
+            return machine['activeWelderSession'] != null;
+          })
+          .map((machine) {
+            final machineMap = Map<String, dynamic>.from(machine as Map);
+            final session = Map<String, dynamic>.from(
+              machineMap['activeWelderSession'] as Map,
+            );
+
+            return {
+              'machine': {
+                'id': machineMap['id'] ?? machineMap['machineId'],
+                'machineCode':
+                    machineMap['machineCode'] ?? machineMap['code'] ?? '-',
+                'serialNumber': machineMap['serialNumber'] ?? '-',
+                'location': machineMap['location'] ?? '-',
+              },
+              'welder': session['welder'] ??
+                  {
+                    'name': machineMap['welder'] ?? '-',
+                  },
+              'arcingTime': session['arcingTime'] ?? '0:00:00',
+              'idleTime': session['idleTime'] ?? '0:00:00',
+              'current': session['current'] ?? machineMap['outputCurrent'] ?? 0,
+              'voltage': session['voltage'] ?? 0,
+              'status': session['status'] ?? machineMap['status'] ?? '-',
+            };
+          })
+          .toList();
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Live welder session report request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the live welder session report API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Live welder session report response was not valid JSON.',
+      );
+    }
+  }
+
   static Future<List<dynamic>> getAdminCustomers() async {
     try {
       final response = await http
@@ -241,6 +299,7 @@ class MachineService {
             body: jsonEncode(payload),
           )
           .timeout(_requestTimeout);
+
       debugPrint(
         '[access] API response ${response.statusCode} for customer '
         '$customerId: ${response.body}',
@@ -281,6 +340,7 @@ class MachineService {
             headers: AuthService.authorizedHeaders,
           )
           .timeout(_requestTimeout);
+
       debugPrint(
         '[access] reload payload response ${response.statusCode} for '
         '$normalizedEmail: ${response.body}',
@@ -333,6 +393,7 @@ class MachineService {
       'buttons': buttons.toList()..sort(),
       'reports': reports.toList()..sort(),
     };
+
     debugPrint('[access] save payload for $normalizedEmail: $payload');
 
     try {
@@ -343,6 +404,7 @@ class MachineService {
             body: jsonEncode(payload),
           )
           .timeout(_requestTimeout);
+
       debugPrint(
         '[access] API response ${response.statusCode} for '
         '$normalizedEmail: ${response.body}',
@@ -364,32 +426,6 @@ class MachineService {
     } on FormatException {
       throw const MachineServiceException(
         'Customer access save response was not valid JSON.',
-      );
-    }
-  }
-
-  static Future<List<dynamic>> getLiveWelderSessions() async {
-    try {
-      final response = await http
-          .get(_liveWelderSessionsUri, headers: AuthService.authorizedHeaders)
-          .timeout(_requestTimeout);
-
-      return _decodeListResponse(
-        response,
-        notFoundMessage:
-            'Live welder session report endpoint was not found on the backend.',
-      );
-    } on TimeoutException {
-      throw const MachineServiceException(
-        'Live welder session report request timed out. Check the API connection and try again.',
-      );
-    } on http.ClientException catch (error) {
-      throw MachineServiceException(
-        'Unable to reach the live welder session report API: ${error.message}',
-      );
-    } on FormatException {
-      throw const MachineServiceException(
-        'Live welder session report response was not valid JSON.',
       );
     }
   }
@@ -475,9 +511,6 @@ class MachineService {
 
   static Uri get _fleetOverviewUri =>
       Uri.parse('${AppConfig.baseUrl}/api/machines/overview');
-
-  static Uri get _liveWelderSessionsUri =>
-      Uri.parse('${AppConfig.baseUrl}/api/reports/live-welder-sessions');
 
   static Uri get _adminCustomersUri =>
       Uri.parse('${AppConfig.baseUrl}/api/admin/customers');
