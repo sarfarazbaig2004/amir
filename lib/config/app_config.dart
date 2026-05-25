@@ -21,7 +21,7 @@ class AppConfig {
 
   static const String defaultMachineId = String.fromEnvironment(
     'MACHINE_ID',
-    defaultValue: '4',
+    defaultValue: '2',
   );
 
   static bool get isProduction {

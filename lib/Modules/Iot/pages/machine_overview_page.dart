@@ -8,8 +8,8 @@ import '../widgets/metric_row.dart';
 import '../widgets/welder_assignment_panel.dart';
 import '../helpers/responsive.dart';
 import '../services/machine_service.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class MachineOverviewPage extends StatefulWidget {
   const MachineOverviewPage({super.key, this.machineId, this.access});
@@ -175,11 +175,14 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                     child: Column(
                       children: [
                         _buildWeldingCard(context),
-                        const SizedBox(height: _gap),
-                        WelderAssignmentPanel(
-                          machineId: _machineCode.isEmpty
-                              ? widget.machineId ?? AppConfig.defaultMachineId
-                              : _machineCode,
+                        const SizedBox(height: 16),
+SizedBox(
+                          width: double.infinity,
+                          child: WelderAssignmentPanel(
+                            machineId: _machineCode.isEmpty
+                                ? widget.machineId ?? AppConfig.defaultMachineId
+                                : _machineCode,
+                          ),
                         ),
                         if (_showAcVoltageTrend) ...[
                           const SizedBox(height: _gap),
@@ -237,7 +240,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
           child: Column(
             children: [
               _buildTopSummary(context, isMobile: false),
-              const SizedBox(height: _gap),
+              const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -247,6 +250,12 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                     Expanded(child: _buildInputPowerCard(context)),
                   ],
                 ],
+              ),
+              const SizedBox(height: _gap),
+              WelderAssignmentPanel(
+                machineId: _machineCode.isEmpty
+                    ? widget.machineId ?? AppConfig.defaultMachineId
+                    : _machineCode,
               ),
               const SizedBox(height: _gap),
               Row(
@@ -295,6 +304,15 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
               _buildTopSummary(context, isMobile: true),
               const SizedBox(height: 12),
               _buildWeldingCard(context),
+                        const SizedBox(height: 16),
+SizedBox(
+                          width: double.infinity,
+                          child: WelderAssignmentPanel(
+                            machineId: _machineCode.isEmpty
+                                ? widget.machineId ?? AppConfig.defaultMachineId
+                                : _machineCode,
+                          ),
+                        ),
               const SizedBox(height: 12),
               if (_showInputVoltageSection) ...[
                 _buildInputPowerCard(context),
@@ -574,12 +592,33 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
               if (_hasButton('setCurrent')) const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Reset welding data clicked'),
-                      ),
-                    );
+                  onPressed: () async {
+                    try {
+                      await MachineService.resetJobData(_activeMachineId);
+
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Welding data reset successfully'),
+                        ),
+                      );
+
+                      overviewData?['trend'] = [];
+
+                      await _loadOverview(showLoader: false);
+
+                      setState(() {});
+                    } catch (e) {
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Reset failed: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF111827),
