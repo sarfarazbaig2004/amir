@@ -22,6 +22,15 @@ class MachineOverviewPage extends StatefulWidget {
 }
 
 class _MachineOverviewPageState extends State<MachineOverviewPage> {
+  final TextEditingController _trafoTempLimitController = TextEditingController(text: '85');
+  final TextEditingController _igbtTempLimitController = TextEditingController(text: '85');
+  final TextEditingController _heatSyncTempLimitController = TextEditingController(text: '85');
+
+  final TextEditingController _voltageRLimitController = TextEditingController(text: '470');
+  final TextEditingController _voltageYLimitController = TextEditingController(text: '470');
+  final TextEditingController _voltageBLimitController = TextEditingController(text: '470');
+
+  final TextEditingController _currentLimitController = TextEditingController();
   static const double _desktopMaxWidth = 1400;
   static const double _pagePadding = 24;
   static const double _gap = 24;
@@ -572,11 +581,51 @@ SizedBox(
             children: [
               if (_hasButton('setCurrent'))
                 Expanded(
+                  child: TextField(
+                    controller: _currentLimitController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Max Current Limit',
+                      hintText: '20 - 400',
+                      suffixText: 'A',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_hasButton('setCurrent')) const SizedBox(width: 12),
+              if (_hasButton('setCurrent'))
+                Expanded(
                   child: FilledButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Set current clicked')),
-                      );
+                    onPressed: () async {
+                      final value = int.tryParse(_currentLimitController.text.trim());
+
+                      if (value == null || value < 20 || value > 400) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Current limit must be between 20 and 400 A'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      try {
+                        await MachineService.setCurrent(_activeMachineId, value);
+                        await _loadOverview(showLoader: false);
+
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Current limit applied: $value A')),
+                        );
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to set current: $error')),
+                        );
+                      }
                     },
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF111827),
@@ -586,7 +635,7 @@ SizedBox(
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text('Set Current'),
+                    child: const Text('Apply'),
                   ),
                 ),
               if (_hasButton('setCurrent')) const SizedBox(width: 12),
@@ -594,13 +643,14 @@ SizedBox(
                 child: OutlinedButton(
                   onPressed: () async {
                     try {
-                      await MachineService.resetJobData(_activeMachineId);
+                      await MachineService.setCurrent(_activeMachineId, 400);
+                      _currentLimitController.text = '400';
 
                       if (!context.mounted) return;
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Welding data reset successfully'),
+                          content: Text('Current limit reset to 400A'),
                         ),
                       );
 
@@ -628,7 +678,7 @@ SizedBox(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Reset'),
+                  child: const Text('Reset to 400A'),
                 ),
               ),
             ],
@@ -816,35 +866,78 @@ SizedBox(
           const SizedBox(height: 18),
           Row(
             children: [
-              if (_hasButton('setTemperature')) ...[
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Set temperature clicked'),
-                        ),
-                      );
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text('Set Temperature'),
+              Expanded(
+                child: TextField(
+                  controller: _trafoTempLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Trafo Limit',
+                    suffixText: '°C',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(width: 12),
-              ],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _igbtTempLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'IGBT Limit',
+                    suffixText: '°C',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _heatSyncTempLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Heat Sync Limit',
+                    suffixText: '°C',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Temperature limits set: Trafo ${_trafoTempLimitController.text}°C, IGBT ${_igbtTempLimitController.text}°C, Heat Sync ${_heatSyncTempLimitController.text}°C',
+                        ),
+                      ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF111827),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Apply Temp Limits'),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
+                    _trafoTempLimitController.text = '85';
+                    _igbtTempLimitController.text = '85';
+                    _heatSyncTempLimitController.text = '85';
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Reset temperature data clicked'),
+                        content: Text('Temperature limits reset to 85°C'),
                       ),
                     );
                   },
@@ -942,11 +1035,53 @@ SizedBox(
           Row(
             children: [
               Expanded(
+                child: TextField(
+                  controller: _voltageRLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'R Limit',
+                    suffixText: 'V',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _voltageYLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Y Limit',
+                    suffixText: 'V',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _voltageBLimitController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'B Limit',
+                    suffixText: 'V',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
                 child: FilledButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Voltage threshold clicked'),
+                      SnackBar(
+                        content: Text(
+                          'Voltage limits set: R ${_voltageRLimitController.text}V, Y ${_voltageYLimitController.text}V, B ${_voltageBLimitController.text}V',
+                        ),
                       ),
                     );
                   },
@@ -958,16 +1093,19 @@ SizedBox(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text('Set Voltage Limit'),
+                  child: const Text('Apply Voltage Limits'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
+                    _voltageRLimitController.text = '470';
+                    _voltageYLimitController.text = '470';
+                    _voltageBLimitController.text = '470';
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Reset voltage trend clicked'),
+                        content: Text('Voltage limits reset to 470V'),
                       ),
                     );
                   },
@@ -1335,19 +1473,8 @@ SizedBox(
       final voltage = ((item['voltage'] ?? 0) as num).toDouble();
 
       currentSpots.add(FlSpot(i.toDouble(), current));
-      voltageSpots.add(FlSpot(i.toDouble(), voltage));
+      voltageSpots.add(FlSpot(i.toDouble(), voltage * 4)); // 0-100V scaled to 0-400 chart
     }
-
-    final yValues = [
-      ...currentSpots.map((spot) => spot.y),
-      ...voltageSpots.map((spot) => spot.y),
-    ];
-    final minY = yValues.reduce(min);
-    final maxY = yValues.reduce(max);
-    final range = max(5, maxY - minY);
-    final chartMinY = minY - range * 0.12;
-    final chartMaxY = maxY + range * 0.12;
-    final yInterval = max(1.0, (chartMaxY - chartMinY) / 4);
 
     final visibleBottomLabels = trend.length <= 5
         ? List.generate(trend.length, (index) => index)
@@ -1358,11 +1485,11 @@ SizedBox(
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(Icons.show_chart, size: 18, color: Color(0xFF0F172A)),
-            const SizedBox(width: 8),
-            const Text(
-              'Current / Voltage Trend',
+          children: const [
+            Icon(Icons.show_chart, size: 18, color: Color(0xFF0F172A)),
+            SizedBox(width: 8),
+            Text(
+              'Machine Data Trend',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF0F172A),
@@ -1375,9 +1502,9 @@ SizedBox(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
             children: [
-              _buildLegendDot(const Color(0xFF14B8A6), 'Current A'),
+              _buildLegendDot(const Color(0xFF14B8A6), 'Amps'),
               const SizedBox(width: 16),
-              _buildLegendDot(const Color(0xFF2563EB), 'Voltage V'),
+              _buildLegendDot(const Color(0xFF2563EB), 'DC Voltage'),
             ],
           ),
         ),
@@ -1397,27 +1524,42 @@ SizedBox(
                 LineChartData(
                   minX: 0,
                   maxX: (trend.length - 1).toDouble(),
-                  minY: chartMinY,
-                  maxY: chartMaxY,
+                  minY: 0,
+                  maxY: 400,
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: yInterval,
+                    horizontalInterval: 100,
                     getDrawingHorizontalLine: (value) =>
                         FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1),
                   ),
                   titlesData: FlTitlesData(
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 42,
+                        interval: 100,
+                        getTitlesWidget: (value, meta) {
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(
+                              (value / 4).toStringAsFixed(0),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF2563EB),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
-                        interval: yInterval,
+                        interval: 100,
                         getTitlesWidget: (value, meta) {
                           return SideTitleWidget(
                             meta: meta,
@@ -1426,6 +1568,7 @@ SizedBox(
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           );
@@ -1470,11 +1613,17 @@ SizedBox(
                       getTooltipColor: (_) => Colors.black87,
                       getTooltipItems: (spots) {
                         return spots.map((spot) {
-                          final label = spot.barIndex == 0
-                              ? 'Current'
-                              : 'Voltage';
+                          if (spot.barIndex == 1) {
+                            return LineTooltipItem(
+                              'Voltage\\n${(spot.y / 4).toStringAsFixed(1)} V',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          }
                           return LineTooltipItem(
-                            '$label\n${spot.y.toStringAsFixed(1)}',
+                            'Current\\n${spot.y.toStringAsFixed(1)} A',
                             const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -1491,6 +1640,10 @@ SizedBox(
                       barWidth: 3,
                       color: const Color(0xFF14B8A6),
                       dotData: FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                      ),
                     ),
                     LineChartBarData(
                       spots: voltageSpots,
@@ -1498,12 +1651,21 @@ SizedBox(
                       barWidth: 3,
                       color: const Color(0xFF2563EB),
                       dotData: FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.10),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Left scale: Current 0-400A | Right scale: DC Voltage 0-100V',
+          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
         ),
       ],
     );

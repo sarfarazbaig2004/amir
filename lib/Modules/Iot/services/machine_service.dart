@@ -121,6 +121,46 @@ class MachineService {
     }
   }
 
+  static Future<Map<String, dynamic>> setCurrent(
+    String machineId,
+    int current,
+  ) async {
+    final normalizedMachineId = machineId.trim();
+    if (normalizedMachineId.isEmpty) {
+      throw const MachineServiceException('Machine ID is required.');
+    }
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              '${AppConfig.baseUrl}/api/machine/$normalizedMachineId/set-current',
+            ),
+            headers: AuthService.authorizedJsonHeaders,
+            body: jsonEncode({'current': current}),
+          )
+          .timeout(_requestTimeout);
+
+      return _decodeMapResponse(
+        response,
+        notFoundMessage:
+            'Set current endpoint was not found for machine $normalizedMachineId.',
+      );
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Set current request timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to reach the set current API: ${error.message}',
+      );
+    } on FormatException {
+      throw const MachineServiceException(
+        'Set current response was not valid JSON.',
+      );
+    }
+  }
+
   static Future<List<dynamic>> getFleetOverview() async {
     try {
       final response = await http
