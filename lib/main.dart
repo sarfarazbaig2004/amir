@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'Modules/Iot/machine_dashboard_shell.dart';
 import 'Modules/Iot/pages/login_page.dart';
 import 'Modules/Iot/services/auth_service.dart';
@@ -86,13 +87,13 @@ class _MemcoAppState extends State<MemcoApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'QUIK IoT | MEMCO',
+      title: 'MEMCO Industrial IoT',
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Arial',
-        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
+        scaffoldBackgroundColor: const Color(0xFFF4F7FB),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5E4BA8),
+          seedColor: const Color(0xFF0F172A),
         ),
       ),
       builder: (context, child) {
