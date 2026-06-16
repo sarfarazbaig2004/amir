@@ -335,6 +335,7 @@ class CustomerAccessService {
       'features': access.enabledFeatures.toList()..sort(),
       'parameters': access.enabledParameters.toList()..sort(),
       'premiumFeatures': access.enabledPremiumFeatures.toList()..sort(),
+      'allowedFeatures': access.enabledPremiumFeatures.toList()..sort(),
       'buttons': access.enabledButtons.toList()..sort(),
       'reports': access.enabledReports.toList()..sort(),
     };
