@@ -108,31 +108,23 @@ class _LoginPageState extends State<LoginPage> {
 class _BrandPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: Color(0xFF0F172A),
-              child: Icon(
-                Icons.precision_manufacturing,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-            SizedBox(width: 14),
-            Text(
-              'MEMCO Industrial IoT',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-          ],
+        Image.asset(
+          'assets/images/memco_logo.png',
+          height: 75,
+          fit: BoxFit.contain,
+        ),
+        SizedBox(height: 20),
+        Text(
+          'MEMCO Industrial IoT',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+          ),
         ),
         SizedBox(height: 26),
         Text(
