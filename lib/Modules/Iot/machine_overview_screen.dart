@@ -90,25 +90,29 @@ class _MachineOverviewScreenState extends State<MachineOverviewScreen> {
           children: [
             Expanded(
               flex: 2,
-              child: Column(
-                children: [
-                  _buildTrendChartCard(trend),
-                  const SizedBox(height: 24),
-                  _buildWelderAssignmentCard(),
-                ],
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildTrendChartCard(trend),
+                    const SizedBox(height: 24),
+                    _buildWelderAssignmentCard(),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 24),
             Expanded(
               flex: 1,
-              child: Column(
-                children: [
-                  _buildTopMetricsCard(),
-                  const SizedBox(height: 24),
-                  _buildTemperatureCard(data),
-                  const SizedBox(height: 24),
-                  _buildWelderIdentificationCard(data),
-                ],
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildTopMetricsCard(),
+                    const SizedBox(height: 24),
+                    _buildTemperatureCard(data),
+                    const SizedBox(height: 24),
+                    _buildWelderIdentificationCard(data),
+                  ],
+                ),
               ),
             ),
           ],
