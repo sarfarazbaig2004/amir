@@ -243,7 +243,12 @@ debugPrint('[access] fleet machines loaded: ${_machines.length}');
         modules: _draftAccess.enabledModules,
         machineCodes: _draftAccess.allowedMachineCodes,
         machineIds: machineIds,
-        features: _draftAccess.enabledFeatures,
+        features: {
+          ..._draftAccess.enabledFeatures,
+          ..._draftAccess.enabledPremiumFeatures,
+          ..._draftAccess.enabledButtons,
+          ..._draftAccess.enabledReports,
+        },
         parameters: _draftAccess.enabledParameters,
         premiumFeatures: _draftAccess.enabledPremiumFeatures,
         buttons: _draftAccess.enabledButtons,
