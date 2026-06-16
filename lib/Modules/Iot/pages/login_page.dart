@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
-
 import '../services/auth_service.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.onLogin});
+const Color quikOrange = Color(0xFFF86818);
+const Color quikOrangeHover = Color(0xFFE85A10);
+const Color quikOrangeLight = Color(0xFFFFF3EB);
+const Color darkText = Color(0xFF111827);
+const Color secondaryText = Color(0xFF64748B);
+const Color pageBg = Color(0xFFF8FAFC);
 
-  final ValueChanged<AuthSession> onLogin;
+class LoginPage extends StatefulWidget {
+  final void Function(AuthSession session) onLogin;
+
+  const LoginPage({super.key, required this.onLogin});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -54,7 +60,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: pageBg,
       body: SafeArea(
         child: Stack(
           children: [
@@ -113,27 +119,27 @@ class _BrandPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          'assets/images/memco_logo.png',
-          height: 75,
+          'assets/images/quik-logo.png',
+          height: 90,
           fit: BoxFit.contain,
         ),
         SizedBox(height: 20),
         Text(
-          'MEMCO Industrial IoT',
+          'QUIK IoT',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF0F172A),
+            color: darkText,
           ),
         ),
         SizedBox(height: 26),
         Text(
-          'Smart Monitoring for Welding Machines',
+          'Industrial IoT Platform for Welding Automation',
           style: TextStyle(
             fontSize: 34,
             height: 1.15,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF0F172A),
+            color: darkText,
           ),
         ),
         SizedBox(height: 14),
@@ -142,7 +148,7 @@ class _BrandPanel extends StatelessWidget {
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF334155),
+            color: secondaryText,
           ),
         ),
         SizedBox(height: 18),
@@ -152,7 +158,7 @@ class _BrandPanel extends StatelessWidget {
             fontSize: 15,
             height: 1.6,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF64748B),
+            color: secondaryText,
           ),
         ),
       ],
@@ -177,7 +183,7 @@ class _LoginCardState extends State<_LoginCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFD8DEE8)),
+        border: Border.all(color: quikOrangeLight),
         boxShadow: const [
           BoxShadow(
             color: Color(0x16000000),
@@ -196,14 +202,14 @@ class _LoginCardState extends State<_LoginCard> {
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
+              color: darkText,
             ),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Sign in to continue to MEMCO Industrial IoT.',
+            'Sign in to continue to MEMCO Workspace.',
             style: TextStyle(
-              color: Color(0xFF64748B),
+              color: secondaryText,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -240,7 +246,7 @@ class _LoginCardState extends State<_LoginCard> {
           FilledButton(
             onPressed: parent._isLoading ? null : parent._submit,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
+              backgroundColor: quikOrange,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
@@ -263,12 +269,12 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Text(
-      'Powered by QUIK  •  Version 1.0  •  © MEMCO',
+      'QUIK IoT by GenZ ProTech • MEMCO Workspace',
       textAlign: TextAlign.center,
       style: TextStyle(
-        color: Color(0xFF64748B),
+        color: secondaryText,
         fontSize: 12,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
