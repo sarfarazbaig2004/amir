@@ -190,46 +190,15 @@ class MachineService {
   static Future<List<dynamic>> getLiveWelderSessions() async {
     try {
       final response = await http
-          .get(_fleetOverviewUri, headers: AuthService.authorizedHeaders)
+          .get(_liveWelderSessionsUri, headers: AuthService.authorizedHeaders)
           .timeout(_requestTimeout);
 
-      final machines = _decodeListResponse(
+      return _decodeFlexibleListResponse(
         response,
+        listKeys: const ['sessions', 'items', 'data'],
         notFoundMessage:
-            'Fleet overview endpoint was not found on the backend.',
+            'Live welder session report endpoint was not found on the backend.',
       );
-
-      return machines
-          .where((machine) {
-            if (machine is! Map) return false;
-            return machine['activeWelderSession'] != null;
-          })
-          .map((machine) {
-            final machineMap = Map<String, dynamic>.from(machine as Map);
-            final session = Map<String, dynamic>.from(
-              machineMap['activeWelderSession'] as Map,
-            );
-
-            return {
-              'machine': {
-                'id': machineMap['id'] ?? machineMap['machineId'],
-                'machineCode':
-                    machineMap['machineCode'] ?? machineMap['code'] ?? '-',
-                'serialNumber': machineMap['serialNumber'] ?? '-',
-                'location': machineMap['location'] ?? '-',
-              },
-              'welder': session['welder'] ??
-                  {
-                    'name': machineMap['welder'] ?? '-',
-                  },
-              'arcingTime': session['arcingTime'] ?? '0:00:00',
-              'idleTime': session['idleTime'] ?? '0:00:00',
-              'current': session['current'] ?? machineMap['outputCurrent'] ?? 0,
-              'voltage': session['voltage'] ?? 0,
-              'status': session['status'] ?? machineMap['status'] ?? '-',
-            };
-          })
-          .toList();
     } on TimeoutException {
       throw const MachineServiceException(
         'Live welder session report request timed out. Check the API connection and try again.',
@@ -470,15 +439,14 @@ class MachineService {
     }
   }
 
-
-
   static Future<List<dynamic>> getActiveWelderAssignments({
     required String machineId,
   }) async {
     final response = await http
         .get(
-          Uri.parse('${AppConfig.baseUrl}/api/welder-assignments/active')
-              .replace(queryParameters: {'machineId': machineId}),
+          Uri.parse(
+            '${AppConfig.baseUrl}/api/welder-assignments/active',
+          ).replace(queryParameters: {'machineId': machineId}),
           headers: AuthService.authorizedHeaders,
         )
         .timeout(_requestTimeout);
@@ -694,7 +662,6 @@ class MachineService {
     }
   }
 
-
   static Uri _engineeringSetpointsUri(String machineId) {
     final encodedMachineId = Uri.encodeComponent(machineId);
     return Uri.parse(
@@ -739,6 +706,9 @@ class MachineService {
 
   static Uri get _fleetOverviewUri =>
       Uri.parse('${AppConfig.baseUrl}/api/machines/overview');
+
+  static Uri get _liveWelderSessionsUri =>
+      Uri.parse('${AppConfig.baseUrl}/api/reports/live-welder-sessions');
 
   static Uri get _adminCustomersUri =>
       Uri.parse('${AppConfig.baseUrl}/api/admin/customers');

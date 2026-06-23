@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../config/app_config.dart';
 import '../services/machine_service.dart';
 
 class CustomerArcingReportPage extends StatefulWidget {
@@ -25,12 +26,13 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
   bool _isLoading = true;
   String _errorMessage = '';
   Timer? _refreshTimer;
+  bool _isFetchingReport = false;
 
   @override
   void initState() {
     super.initState();
     _loadReport();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _loadReport(showLoader: false);
     });
   }
@@ -41,27 +43,26 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     super.dispose();
   }
 
-  void _exportCsv() {
+  Future<void> _exportCsv() async {
     final date = DateTime.now().toIso8601String().split('T').first;
-    final url =
-        'https://api.iot.memcoin.com/api/reports/welder-arc-events.csv?date=$date';
-
-    html.AnchorElement(href: url)
-      ..setAttribute('download', 'welder-arc-report.csv')
-      ..click();
+    final uri = Uri.parse(
+      '${AppConfig.baseUrl}/api/reports/welder-arc-events.csv',
+    ).replace(queryParameters: {'date': date});
+    await launchUrl(uri, webOnlyWindowName: '_blank');
   }
 
-  void _exportPdf() {
+  Future<void> _exportPdf() async {
     final date = DateTime.now().toIso8601String().split('T').first;
-    final url =
-        'https://api.iot.memcoin.com/api/reports/welder-arc-events.pdf?date=$date';
-
-    html.AnchorElement(href: url)
-      ..setAttribute('download', 'welder-arc-report.pdf')
-      ..click();
+    final uri = Uri.parse(
+      '${AppConfig.baseUrl}/api/reports/welder-arc-events.pdf',
+    ).replace(queryParameters: {'date': date});
+    await launchUrl(uri, webOnlyWindowName: '_blank');
   }
 
   Future<void> _loadReport({bool showLoader = true}) async {
+    if (_isFetchingReport) return;
+    _isFetchingReport = true;
+
     if (showLoader) {
       setState(() {
         _isLoading = true;
@@ -87,6 +88,8 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
         _isLoading = false;
         _errorMessage = error.message;
       });
+    } finally {
+      _isFetchingReport = false;
     }
   }
 
@@ -109,8 +112,9 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     if (machine is! Map) return false;
 
     final rawId = machine['id'] ?? machine['machineId'];
-    final machineId =
-        rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+    final machineId = rawId is int
+        ? rawId
+        : int.tryParse(rawId?.toString() ?? '');
 
     if (allowedMachineIds != null &&
         allowedMachineIds.isNotEmpty &&
@@ -215,18 +219,18 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     final avgCurrent = _sessions.isEmpty
         ? 0
         : _sessions.fold<num>(0, (sum, session) {
-              final row = _safeMap(session);
-              return sum + _toNum(row['current']);
-            }) /
-            _sessions.length;
+                final row = _safeMap(session);
+                return sum + _weldingMetric(row, 'current');
+              }) /
+              _sessions.length;
 
     final avgVoltage = _sessions.isEmpty
         ? 0
         : _sessions.fold<num>(0, (sum, session) {
-              final row = _safeMap(session);
-              return sum + _toNum(row['voltage']);
-            }) /
-            _sessions.length;
+                final row = _safeMap(session);
+                return sum + _weldingMetric(row, 'voltage');
+              }) /
+              _sessions.length;
 
     return Row(
       children: [
@@ -319,8 +323,10 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
             final machine = _safeMap(row['machine']);
             final welder = _safeMap(row['welder']);
 
-            final current = _toNum(row['current']);
-            final voltage = _toNum(row['voltage']);
+            final status = (row['status'] ?? '-').toString();
+            final isWelding = status.trim().toUpperCase() == 'WELDING';
+            final current = isWelding ? _toNum(row['current']) : 0;
+            final voltage = isWelding ? _toNum(row['voltage']) : 0;
 
             return DataRow(
               cells: [
@@ -331,7 +337,7 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
                 DataCell(Text((row['arcingTime'] ?? '0:00:00').toString())),
                 DataCell(Text('${current.toStringAsFixed(0)} A')),
                 DataCell(Text('${voltage.toStringAsFixed(0)} V')),
-                DataCell(_statusBadge((row['status'] ?? '-').toString())),
+                DataCell(_statusBadge(status)),
               ],
             );
           }).toList(),
@@ -355,7 +361,8 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     } else if (normalizedStatus == 'OFFLINE') {
       backgroundColor = const Color(0xFFE5E7EB);
       textColor = const Color(0xFF4B5563);
-    } else if (normalizedStatus == 'OVERHEAT' || normalizedStatus == 'CRITICAL') {
+    } else if (normalizedStatus == 'OVERHEAT' ||
+        normalizedStatus == 'CRITICAL') {
       backgroundColor = const Color(0xFFFEE2E2);
       textColor = const Color(0xFF991B1B);
     }
@@ -367,11 +374,8 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        normalizedStatus,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.w800,
-        ),
+        status,
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -388,6 +392,11 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     if (value is num) return value;
 
     return num.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  num _weldingMetric(Map<String, dynamic> row, String key) {
+    final status = (row['status'] ?? '').toString().trim().toUpperCase();
+    return status == 'WELDING' ? _toNum(row[key]) : 0;
   }
 
   String _formatDateTime(dynamic value) {

@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import '../../../config/app_config.dart';
 import '../services/machine_service.dart';
@@ -27,6 +25,10 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   List<dynamic> _productionTimeline = [];
   DateTime _selectedDate = DateTime.now();
   Timer? _productionClockTimer;
+  Timer? _pollTimer;
+  bool _isFetchingOverview = false;
+  bool _isFetchingProduction = false;
+  bool _isLoadingAllData = false;
   bool _isLoading = true;
   bool _isProductionLoading = true;
   String _errorMessage = '';
@@ -35,8 +37,10 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   @override
   void initState() {
     super.initState();
-    _loadOverview();
-    _loadProductionData();
+    _loadAllData();
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _pollData();
+    });
     _productionClockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted && _hasOpenTimelineEvent) {
         setState(() {});
@@ -51,18 +55,47 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
       _overviewData = null;
       _dailyProductionData = null;
       _productionTimeline = [];
-      _loadOverview();
-      _loadProductionData();
+      _loadAllData();
     }
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _productionClockTimer?.cancel();
     super.dispose();
   }
 
+  Future<void> _pollData() async {
+    if (_isLoadingAllData) return;
+    _isLoadingAllData = true;
+
+    try {
+      await _loadOverview(showLoader: false);
+      if (!mounted) return;
+      await _loadProductionData(showLoader: false);
+    } finally {
+      _isLoadingAllData = false;
+    }
+  }
+
+  Future<void> _loadAllData() async {
+    if (_isLoadingAllData) return;
+    _isLoadingAllData = true;
+
+    try {
+      await _loadOverview();
+      if (!mounted) return;
+      await _loadProductionData();
+    } finally {
+      _isLoadingAllData = false;
+    }
+  }
+
   Future<void> _loadOverview({bool showLoader = true}) async {
+    if (_isFetchingOverview) return;
+    _isFetchingOverview = true;
+
     if (showLoader) {
       setState(() {
         _isLoading = true;
@@ -87,10 +120,15 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
         _isLoading = false;
         _errorMessage = error.toString();
       });
+    } finally {
+      _isFetchingOverview = false;
     }
   }
 
   Future<void> _loadProductionData({bool showLoader = true}) async {
+    if (_isFetchingProduction) return;
+    _isFetchingProduction = true;
+
     if (showLoader) {
       setState(() {
         _isProductionLoading = true;
@@ -101,16 +139,18 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
     final date = _apiDate(_selectedDate);
 
     try {
-      final results = await Future.wait([
-        MachineService.getMachineDailyProduction(_machineId, date),
-        MachineService.getMachineProductionTimeline(_machineId, date),
-      ]);
+      final dailyProduction = await MachineService.getMachineDailyProduction(
+        _machineId,
+        date,
+      );
+      final productionTimeline =
+          await MachineService.getMachineProductionTimeline(_machineId, date);
 
       if (!mounted) return;
 
       setState(() {
-        _dailyProductionData = results[0] as Map<String, dynamic>;
-        _productionTimeline = results[1] as List<dynamic>;
+        _dailyProductionData = dailyProduction;
+        _productionTimeline = productionTimeline;
         _isProductionLoading = false;
         _productionErrorMessage = '';
       });
@@ -121,6 +161,8 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
         _isProductionLoading = false;
         _productionErrorMessage = error.toString();
       });
+    } finally {
+      _isFetchingProduction = false;
     }
   }
 
@@ -602,23 +644,23 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   Widget _buildAcVoltageCard() {
-    final inputVoltage = _mapValue('inputVoltage');
+    final inputLineVoltage = _mapValue('inputLineVoltage');
 
     return DashboardCard(
       title: 'AC Voltage',
       child: Column(
         children: [
           MetricRow(
-            label: 'R phase Voltage',
-            value: '${_numFromMap(inputVoltage, 'R').round()} V',
+            label: 'R-Y Line Voltage',
+            value: '${_numFromMap(inputLineVoltage, 'RY').round()} V',
           ),
           MetricRow(
-            label: 'Y phase Voltage',
-            value: '${_numFromMap(inputVoltage, 'Y').round()} V',
+            label: 'Y-B Line Voltage',
+            value: '${_numFromMap(inputLineVoltage, 'YB').round()} V',
           ),
           MetricRow(
-            label: 'B phase Voltage',
-            value: '${_numFromMap(inputVoltage, 'B').round()} V',
+            label: 'B-R Line Voltage',
+            value: '${_numFromMap(inputLineVoltage, 'BR').round()} V',
           ),
         ],
       ),
@@ -626,6 +668,12 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   Widget _buildMachineLiveDataCard() {
+    final isWelding =
+        (_overviewData?['status'] ?? '').toString().trim().toUpperCase() ==
+        'WELDING';
+    final weldingCurrent = isWelding ? _numValue('weldingCurrent') : 0;
+    final weldingVoltage = isWelding ? _numValue('weldingVoltage') : 0;
+
     return DashboardCard(
       title: 'Machine Live Data',
       child: Column(
@@ -638,11 +686,11 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
           MetricRow(label: 'Today OFF/OFFLINE', value: _todayOffOfflineTime),
           MetricRow(
             label: 'Welding Current',
-            value: '${_numValue('weldingCurrent').toStringAsFixed(2)} A',
+            value: '${weldingCurrent.toStringAsFixed(2)} A',
           ),
           MetricRow(
             label: 'Welding Voltage',
-            value: '${_numValue('weldingVoltage').toStringAsFixed(1)} V',
+            value: '${weldingVoltage.toStringAsFixed(1)} V',
           ),
           MetricRow(
             label: 'Current set by Knob',
@@ -981,10 +1029,9 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
         'mode',
         'type',
       ], 'UNKNOWN').toUpperCase();
-      final effectiveStatus = _effectiveTimelineStatus(map, status);
       final durationSeconds = _timelineDurationSeconds(map);
 
-      switch (effectiveStatus) {
+      switch (status) {
         case 'ARC':
         case 'ARCING':
         case 'WELDING':
@@ -1011,49 +1058,12 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   String get _currentMachineStatus {
-    final currentMap = _currentTimelineMap;
-    if (currentMap != null) {
-      final status = _plainMetric(currentMap, const [
-        'status',
-        'state',
-        'mode',
-        'type',
-      ], '').toUpperCase();
-      final effectiveStatus = _effectiveTimelineStatus(currentMap, status);
-      if (effectiveStatus.isNotEmpty) return effectiveStatus;
-    }
-
     final overviewStatus = _overviewData?['status'];
     if (overviewStatus != null && overviewStatus.toString().trim().isNotEmpty) {
-      return overviewStatus.toString().trim().toUpperCase();
+      return overviewStatus.toString();
     }
 
     return 'UNKNOWN';
-  }
-
-  String _effectiveTimelineStatus(
-    Map<String, dynamic> map,
-    String fallbackStatus,
-  ) {
-    if (!_isOpenTimelineEvent(map)) {
-      return fallbackStatus;
-    }
-
-    final derivedStatus = _derivedTelemetryStatus;
-    if (derivedStatus == null) {
-      return fallbackStatus;
-    }
-
-    switch (fallbackStatus) {
-      case '':
-      case 'UNKNOWN':
-      case 'OFF':
-      case 'OFFLINE':
-      case 'OFF/OFFLINE':
-        return derivedStatus;
-      default:
-        return fallbackStatus;
-    }
   }
 
   int get _currentTimelineSeconds {
@@ -1114,84 +1124,6 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
     return effectiveEnd.difference(start).inSeconds;
   }
 
-  String? get _derivedTelemetryStatus {
-    final telemetryTime = _telemetryTimestamp;
-    if (telemetryTime == null) {
-      return null;
-    }
-
-    final arcOn = _telemetryBool(const ['arcOn', 'arc_on', 'isArcing']);
-    final machineOn = _telemetryBool(const [
-      'machineOn',
-      'machine_on',
-      'isMachineOn',
-    ]);
-
-    final effectiveArcOn = arcOn ?? _outputCurrent > 5;
-    final effectiveMachineOn = machineOn ?? _inputVoltage > 100;
-
-    if (effectiveArcOn) {
-      return 'ARC';
-    }
-    if (effectiveMachineOn) {
-      return 'IDLE';
-    }
-    return 'OFFLINE';
-  }
-
-  DateTime? get _telemetryTimestamp {
-    final telemetry = _mapValue('telemetry');
-    final value =
-        _firstValue(telemetry, const ['timestamp', 'time', 'createdAt']) ??
-        _firstValue(_overviewData ?? const {}, const [
-          'timestamp',
-          'lastUpdatedAt',
-          'telemetryTimestamp',
-        ]);
-    return _dateTimeValue(value);
-  }
-
-  bool? _telemetryBool(List<String> keys) {
-    final telemetry = _mapValue('telemetry');
-    final value =
-        _firstValue(telemetry, keys) ??
-        _firstValue(_overviewData ?? const {}, keys);
-
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    if (value is String) {
-      final normalized = value.trim().toLowerCase();
-      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-        return true;
-      }
-      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-        return false;
-      }
-    }
-    return null;
-  }
-
-  num get _outputCurrent {
-    return _numValue('outputCurrent') == 0
-        ? _numValue('weldingCurrent')
-        : _numValue('outputCurrent');
-  }
-
-  num get _inputVoltage {
-    final inputVoltage = _mapValue('inputVoltage');
-    final phaseVoltage = [
-      _numFromMap(inputVoltage, 'R'),
-      _numFromMap(inputVoltage, 'Y'),
-      _numFromMap(inputVoltage, 'B'),
-    ].fold<num>(0, max);
-
-    if (phaseVoltage > 0) {
-      return phaseVoltage;
-    }
-
-    return _numValue('inputVoltage');
-  }
-
   DateTime? _dateTimeValue(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
@@ -1241,13 +1173,12 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
     );
     final rawEnd = _firstValue(map, const ['end', 'endTime', 'to', 'toTime']);
     final end = rawEnd == null ? 'Now' : _formatTimelineTime(rawEnd);
-    final rawStatus = _plainMetric(map, const [
+    final status = _plainMetric(map, const [
       'status',
       'state',
       'mode',
       'type',
-    ], 'UNKNOWN').toUpperCase();
-    final status = _effectiveTimelineStatus(map, rawStatus);
+    ], 'UNKNOWN');
 
     return _TimelineEvent(start: start, end: end, status: status);
   }

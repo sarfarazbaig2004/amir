@@ -72,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFFF4F7FB),
-                      const Color(0xFFE8EEF6).withOpacity(0.9),
+                      const Color(0xFFE8EEF6).withValues(alpha: 0.9),
                     ],
                   ),
                 ),
@@ -86,24 +86,15 @@ class _LoginPageState extends State<LoginPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: _BrandPanel(),
-                      ),
+                      Expanded(child: _BrandPanel()),
                       const SizedBox(width: 40),
-                      const Expanded(
-                        child: _LoginCard(),
-                      ),
+                      const Expanded(child: _LoginCard()),
                     ],
                   ),
                 ),
               ),
             ),
-            const Positioned(
-              left: 24,
-              right: 24,
-              bottom: 18,
-              child: _Footer(),
-            ),
+            const Positioned(left: 24, right: 24, bottom: 18, child: _Footer()),
           ],
         ),
       ),
@@ -208,10 +199,7 @@ class _LoginCardState extends State<_LoginCard> {
           const SizedBox(height: 6),
           const Text(
             'Sign in to continue to MEMCO Workspace.',
-            style: TextStyle(
-              color: secondaryText,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: secondaryText, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 24),
           TextField(
@@ -253,10 +241,7 @@ class _LoginCardState extends State<_LoginCard> {
             child: Text(parent._isLoading ? 'Signing in...' : 'Sign In'),
           ),
           const SizedBox(height: 12),
-          TextButton(
-            onPressed: () {},
-            child: const Text('Forgot Password?'),
-          ),
+          TextButton(onPressed: () {}, child: const Text('Forgot Password?')),
         ],
       ),
     );

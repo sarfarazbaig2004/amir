@@ -27,13 +27,14 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   Timer? timer;
   Timer? blinkTimer;
   bool isBlinkOn = true;
+  bool _isFetching = false;
 
   @override
   void initState() {
     super.initState();
     fetchData();
 
-    timer = Timer.periodic(const Duration(seconds: 10), (_) {
+    timer = Timer.periodic(const Duration(seconds: 5), (_) {
       fetchData();
     });
 
@@ -53,6 +54,9 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   }
 
   Future<void> fetchData() async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     try {
       final data = await MachineService.getFleetOverview();
       if (!mounted) return;
@@ -76,6 +80,8 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       });
     } catch (e) {
       debugPrint('Fleet fetch error: $e');
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -179,8 +185,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   }
 
   Widget buildStatusBadge(String status) {
-    final normalized = status.trim().toUpperCase();
-    final color = getStatusColor(normalized);
+    final color = getStatusColor(status);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -190,7 +195,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Text(
-        normalized,
+        status,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: color,
@@ -372,7 +377,10 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
         .toString();
     final selectedMachineId = _selectedMachineIdFor(machine);
     final health = (machine['health'] ?? 'GREEN').toString();
-    final status = (machine['status'] ?? 'IDLE').toString();
+    final status = (machine['status'] ?? '-').toString();
+    final isWelding = status.trim().toUpperCase() == 'WELDING';
+    final current = isWelding ? _toNum(machine['current']) : 0;
+    final voltage = isWelding ? _toNum(machine['voltage']) : 0;
     final statusColor = getStatusColor(status);
     final cardBackground = getCardBackground(health);
     final borderColor = getCardBorderColor(health);
@@ -417,11 +425,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              _buildMachineDetailRow(
-                'Status',
-                status.toUpperCase(),
-                valueColor: statusColor,
-              ),
+              _buildMachineDetailRow('Status', status, valueColor: statusColor),
               _buildMachineDetailRow(
                 'Serial',
                 (machine['serialNumber'] ?? '').toString(),
@@ -432,7 +436,12 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
               ),
               _buildMachineDetailRow(
                 'Current',
-                '${(machine['current'] ?? 0).round()} A',
+                '${current.toStringAsFixed(0)} A',
+                valueColor: const Color(0xFF111827),
+              ),
+              _buildMachineDetailRow(
+                'Voltage',
+                '${voltage.toStringAsFixed(0)} V',
                 valueColor: const Color(0xFF111827),
               ),
               _buildMachineDetailRow(
@@ -478,6 +487,11 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
         ),
       ),
     );
+  }
+
+  num _toNum(dynamic value) {
+    if (value is num) return value;
+    return num.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   String _selectedMachineIdFor(Map<String, dynamic> machine) {
