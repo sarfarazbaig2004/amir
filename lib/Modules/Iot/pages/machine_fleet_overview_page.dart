@@ -22,6 +22,9 @@ class MachineFleetOverviewPage extends StatefulWidget {
 }
 
 class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
+  static const int _targetFleetSize = 50;
+  static const String _machineCodePrefix = 'WM';
+
   List machines = [];
   bool isLoading = true;
   Timer? timer;
@@ -61,17 +64,14 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       final data = await MachineService.getFleetOverview();
       if (!mounted) return;
 
-      final sortedMachines = List<Map<String, dynamic>>.from(
-        data,
+      final sortedMachines = _withExpectedFleetMachines(
+        List<Map<String, dynamic>>.from(data),
       ).where(_isMachineAllowed).toList();
 
       sortedMachines.sort((a, b) {
-        const priority = {'RED': 0, 'YELLOW': 1, 'GREEN': 2};
-
-        final aHealth = (a['health'] ?? 'GREEN').toString().toUpperCase();
-        final bHealth = (b['health'] ?? 'GREEN').toString().toUpperCase();
-
-        return (priority[aHealth] ?? 99).compareTo(priority[bHealth] ?? 99);
+        final aCode = _machineCodeFor(a).toLowerCase();
+        final bCode = _machineCodeFor(b).toLowerCase();
+        return aCode.compareTo(bCode);
       });
 
       setState(() {
@@ -97,6 +97,58 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       default:
         return Colors.grey.shade600;
     }
+  }
+
+  bool _isOffline(Map<String, dynamic> machine) {
+    final status = _fieldText(machine, const ['status', 'liveStatus']);
+    final health = _fieldText(machine, const ['health']);
+    final normalizedStatus = status.trim().toUpperCase();
+    final normalizedHealth = health.trim().toUpperCase();
+
+    return normalizedStatus == 'OFF' ||
+        normalizedStatus == 'OFFLINE' ||
+        normalizedStatus == 'DISCONNECTED' ||
+        normalizedHealth == 'OFFLINE';
+  }
+
+  List<Map<String, dynamic>> _withExpectedFleetMachines(
+    List<Map<String, dynamic>> apiMachines,
+  ) {
+    final machinesByCode = <String, Map<String, dynamic>>{};
+
+    for (var index = 1; index <= _targetFleetSize; index += 1) {
+      final code = _expectedMachineCode(index);
+      machinesByCode[code] = _offlinePlaceholderMachine(code);
+    }
+
+    for (final machine in apiMachines) {
+      final code = _machineCodeFor(machine);
+      machinesByCode[code] = {
+        ..._offlinePlaceholderMachine(code),
+        ...machine,
+        'machineCode': code,
+      };
+    }
+
+    return machinesByCode.values.toList();
+  }
+
+  String _expectedMachineCode(int index) {
+    return '$_machineCodePrefix-${index.toString().padLeft(3, '0')}';
+  }
+
+  Map<String, dynamic> _offlinePlaceholderMachine(String machineCode) {
+    return {
+      'machineCode': machineCode,
+      'status': 'OFFLINE',
+      'health': 'OFFLINE',
+      'current': 0,
+      'voltage': 0,
+      'temperature': 0,
+      'welder': 'Unknown',
+      'location': '-',
+      'lastSeen': '-',
+    };
   }
 
   bool _isMachineAllowed(Map<String, dynamic> machine) {
@@ -128,6 +180,8 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       case 'IDLE':
         return Colors.blue.shade700;
       case 'OFF':
+      case 'OFFLINE':
+      case 'DISCONNECTED':
         return Colors.grey.shade700;
       default:
         return Colors.grey.shade600;
@@ -160,6 +214,22 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       default:
         return Colors.white;
     }
+  }
+
+  Color _cardBackgroundFor(Map<String, dynamic> machine, String health) {
+    if (_isOffline(machine)) {
+      return const Color(0xFFF3F4F6);
+    }
+
+    return getCardBackground(health);
+  }
+
+  Color _cardBorderFor(Map<String, dynamic> machine, String health) {
+    if (_isOffline(machine)) {
+      return const Color(0xFF9CA3AF);
+    }
+
+    return getCardBorderColor(health);
   }
 
   Widget buildHealthPill(String health) {
@@ -264,6 +334,9 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
           (m) => (m['health'] ?? 'GREEN').toString().toUpperCase() == 'RED',
         )
         .length;
+    final offlineCount = machines
+        .where((machine) => _isOffline(Map<String, dynamic>.from(machine)))
+        .length;
     final yellowCount = machines
         .where(
           (m) => (m['health'] ?? 'GREEN').toString().toUpperCase() == 'YELLOW',
@@ -335,6 +408,11 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                       '$redCount',
                       background: const Color(0xFFFFF1F0),
                     ),
+                    _buildSummaryChip(
+                      'Offline',
+                      '$offlineCount',
+                      background: const Color(0xFFF3F4F6),
+                    ),
                   ],
                 ),
               ],
@@ -373,17 +451,44 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   }
 
   Widget _buildMachineCard(BuildContext context, Map<String, dynamic> machine) {
-    final machineCode = (machine['code'] ?? AppConfig.defaultMachineId)
-        .toString();
+    final machineCode = _machineCodeFor(machine);
     final selectedMachineId = _selectedMachineIdFor(machine);
-    final health = (machine['health'] ?? 'GREEN').toString();
-    final status = (machine['status'] ?? '-').toString();
-    final isWelding = status.trim().toUpperCase() == 'WELDING';
-    final current = isWelding ? _toNum(machine['current']) : 0;
-    final voltage = isWelding ? _toNum(machine['voltage']) : 0;
-    final statusColor = getStatusColor(status);
-    final cardBackground = getCardBackground(health);
-    final borderColor = getCardBorderColor(health);
+    final health = _fieldText(machine, const ['health'], fallback: 'GREEN');
+    final status = _fieldText(
+      machine,
+      const ['status', 'liveStatus'],
+      fallback: '-',
+    );
+    final isOffline = _isOffline(machine);
+    final current = isOffline
+        ? 0
+        : _numberField(
+            machine,
+            const ['outputCurrent', 'current', 'weldingCurrent'],
+          );
+    final voltage = isOffline
+        ? 0
+        : _numberField(machine, const ['weldingVoltage', 'voltage']);
+    final displayTemperature = isOffline
+        ? 0
+        : _numberField(machine, const [
+            'temperature',
+            'temp',
+            'machineTemperature',
+          ]);
+    final welder = _welderNameFor(machine);
+    final location = _fieldText(machine, const ['location'], fallback: '-');
+    final lastSeen = _fieldText(machine, const [
+      'lastSeen',
+      'lastUpdated',
+      'lastUpdatedTime',
+      'updatedAt',
+      'timestamp',
+    ], fallback: '-');
+    final mqttTopic = 'machine/data/$machineCode';
+    final statusColor = getStatusColor(isOffline ? 'OFFLINE' : status);
+    final cardBackground = _cardBackgroundFor(machine, health);
+    final borderColor = _cardBorderFor(machine, health);
 
     return GestureDetector(
       onTap: () => _openMachine(context, selectedMachineId),
@@ -425,15 +530,12 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              _buildMachineDetailRow('Status', status, valueColor: statusColor),
               _buildMachineDetailRow(
-                'Serial',
-                (machine['serialNumber'] ?? '').toString(),
+                'Status',
+                isOffline ? 'OFFLINE' : status,
+                valueColor: statusColor,
               ),
-              _buildMachineDetailRow(
-                'Location',
-                (machine['location'] ?? '').toString(),
-              ),
+              _buildMachineDetailRow('Location', location),
               _buildMachineDetailRow(
                 'Current',
                 '${current.toStringAsFixed(0)} A',
@@ -446,19 +548,21 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
               ),
               _buildMachineDetailRow(
                 'Temp',
-                '${(machine['temperature'] ?? 0).round()} °C',
+                '${displayTemperature.toStringAsFixed(0)} °C',
                 valueColor: const Color(0xFF111827),
               ),
-              _buildMachineDetailRow(
-                'Welder',
-                (machine['welder'] ?? 'Unknown').toString(),
-              ),
+              _buildMachineDetailRow('Health', health),
+              _buildMachineDetailRow('Welder', welder),
+              _buildMachineDetailRow('Last seen', lastSeen),
+              _buildMachineDetailRow('MQTT topic', mqttTopic),
               const SizedBox(height: 20),
               const Divider(color: Color(0xFFE5E7EB), height: 1),
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Expanded(child: buildStatusBadge(status)),
+                  Expanded(
+                    child: buildStatusBadge(isOffline ? 'OFFLINE' : status),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
@@ -494,15 +598,66 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
     return num.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  String _selectedMachineIdFor(Map<String, dynamic> machine) {
-    final code = (machine['code'] ?? machine['machineCode'] ?? '').toString();
-    if (code.trim().isNotEmpty) {
-      return code;
+  num _numberField(Map<String, dynamic> machine, List<String> keys) {
+    for (final key in keys) {
+      if (machine.containsKey(key)) {
+        return _toNum(machine[key]);
+      }
     }
 
-    final id = machine['id'] ?? machine['machineId'];
-    final idText = id?.toString() ?? '';
-    return idText.trim().isNotEmpty ? idText : AppConfig.defaultMachineId;
+    return 0;
+  }
+
+  String _fieldText(
+    Map<String, dynamic> machine,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      final value = machine[key];
+      if (value == null) continue;
+
+      final text = value.toString().trim();
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return fallback;
+  }
+
+  String _machineCodeFor(Map<String, dynamic> machine) {
+    final code = _fieldText(machine, const ['machineCode', 'code']);
+    return code.isNotEmpty ? code : AppConfig.defaultMachineId;
+  }
+
+  String _welderNameFor(Map<String, dynamic> machine) {
+    final welder = machine['activeWelder'] ?? machine['welder'];
+    if (welder is Map) {
+      return (welder['name'] ?? welder['welderName'] ?? 'Unknown').toString();
+    }
+
+    final welderText = welder?.toString().trim() ?? '';
+    return welderText.isNotEmpty ? welderText : 'Unknown';
+  }
+
+  String _selectedMachineIdFor(Map<String, dynamic> machine) {
+    final machineCode = _fieldText(machine, const ['machineCode', 'code']);
+    if (machineCode.trim().isNotEmpty) {
+      return machineCode;
+    }
+
+    final backendIdentifier = _fieldText(machine, const [
+      'overviewId',
+      'backendMachineId',
+      'machineId',
+      'id',
+    ]);
+    if (backendIdentifier.isNotEmpty) {
+      return backendIdentifier;
+    }
+
+    return AppConfig.defaultMachineId;
   }
 
   void _openMachine(BuildContext context, String machineId) {

@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../config/app_config.dart';
 import '../services/machine_service.dart';
+import '../services/report_export_service.dart';
 
 class CustomerArcingReportPage extends StatefulWidget {
   const CustomerArcingReportPage({
@@ -27,6 +26,7 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
   String _errorMessage = '';
   Timer? _refreshTimer;
   bool _isFetchingReport = false;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -44,19 +44,34 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
   }
 
   Future<void> _exportCsv() async {
-    final date = DateTime.now().toIso8601String().split('T').first;
-    final uri = Uri.parse(
-      '${AppConfig.baseUrl}/api/reports/welder-arc-events.csv',
-    ).replace(queryParameters: {'date': date});
-    await launchUrl(uri, webOnlyWindowName: '_blank');
+    await _downloadReport('csv');
   }
 
   Future<void> _exportPdf() async {
+    await _downloadReport('pdf');
+  }
+
+  Future<void> _downloadReport(String format) async {
+    if (_isExporting) return;
+
+    setState(() => _isExporting = true);
     final date = DateTime.now().toIso8601String().split('T').first;
-    final uri = Uri.parse(
-      '${AppConfig.baseUrl}/api/reports/welder-arc-events.pdf',
-    ).replace(queryParameters: {'date': date});
-    await launchUrl(uri, webOnlyWindowName: '_blank');
+
+    try {
+      await ReportExportService.downloadWelderArcReport(
+        date: date,
+        format: format,
+      );
+    } on MachineServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
+    }
   }
 
   Future<void> _loadReport({bool showLoader = true}) async {
@@ -191,13 +206,13 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: _exportCsv,
+                onPressed: _isExporting ? null : _exportCsv,
                 icon: const Icon(Icons.download),
                 label: const Text('Export CSV'),
               ),
               const SizedBox(width: 10),
               ElevatedButton.icon(
-                onPressed: _exportPdf,
+                onPressed: _isExporting ? null : _exportPdf,
                 icon: const Icon(Icons.picture_as_pdf),
                 label: const Text('Export PDF'),
               ),
