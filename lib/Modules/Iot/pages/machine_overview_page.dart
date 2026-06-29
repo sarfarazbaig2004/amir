@@ -22,24 +22,13 @@ class MachineOverviewPage extends StatefulWidget {
 }
 
 class _MachineOverviewPageState extends State<MachineOverviewPage> {
-  final TextEditingController _trafoTempLimitController = TextEditingController(
-    text: '85',
-  );
-  final TextEditingController _igbtTempLimitController = TextEditingController(
-    text: '85',
-  );
-  final TextEditingController _heatSyncTempLimitController =
-      TextEditingController(text: '85');
+  final TextEditingController _trafoTempLimitController = TextEditingController(text: '85');
+  final TextEditingController _igbtTempLimitController = TextEditingController(text: '85');
+  final TextEditingController _heatSyncTempLimitController = TextEditingController(text: '85');
 
-  final TextEditingController _voltageRLimitController = TextEditingController(
-    text: '470',
-  );
-  final TextEditingController _voltageYLimitController = TextEditingController(
-    text: '470',
-  );
-  final TextEditingController _voltageBLimitController = TextEditingController(
-    text: '470',
-  );
+  final TextEditingController _voltageRLimitController = TextEditingController(text: '470');
+  final TextEditingController _voltageYLimitController = TextEditingController(text: '470');
+  final TextEditingController _voltageBLimitController = TextEditingController(text: '470');
 
   final TextEditingController _currentLimitController = TextEditingController();
   static const double _desktopMaxWidth = 1400;
@@ -50,7 +39,6 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   bool isLoading = true;
   String errorMessage = '';
   Timer? refreshTimer;
-  bool _isFetchingOverview = false;
 
   @override
   void initState() {
@@ -75,7 +63,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   void _startAutoRefresh() {
-    refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       _loadOverview(showLoader: false);
     });
   }
@@ -121,9 +109,6 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Future<void> _loadOverview({bool showLoader = true}) async {
-    if (_isFetchingOverview) return;
-    _isFetchingOverview = true;
-
     if (showLoader) {
       setState(() {
         isLoading = true;
@@ -148,8 +133,6 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
         errorMessage = e.toString();
         isLoading = false;
       });
-    } finally {
-      _isFetchingOverview = false;
     }
   }
 
@@ -202,7 +185,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                       children: [
                         _buildWeldingCard(context),
                         const SizedBox(height: 16),
-                        SizedBox(
+SizedBox(
                           width: double.infinity,
                           child: WelderAssignmentPanel(
                             machineId: _machineCode.isEmpty
@@ -330,15 +313,15 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
               _buildTopSummary(context, isMobile: true),
               const SizedBox(height: 12),
               _buildWeldingCard(context),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: WelderAssignmentPanel(
-                  machineId: _machineCode.isEmpty
-                      ? widget.machineId ?? AppConfig.defaultMachineId
-                      : _machineCode,
-                ),
-              ),
+                        const SizedBox(height: 16),
+SizedBox(
+                          width: double.infinity,
+                          child: WelderAssignmentPanel(
+                            machineId: _machineCode.isEmpty
+                                ? widget.machineId ?? AppConfig.defaultMachineId
+                                : _machineCode,
+                          ),
+                        ),
               const SizedBox(height: 12),
               if (_showInputVoltageSection) ...[
                 _buildInputPowerCard(context),
@@ -559,12 +542,6 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Widget _buildWeldingCard(BuildContext context) {
-    final status = _stringValue('status', '');
-    final isWelding = status.trim().toUpperCase() == 'WELDING';
-    final weldingCurrent = isWelding ? _numValue('weldingCurrent') : 0;
-    final weldingVoltage = isWelding ? _numValue('weldingVoltage') : 0;
-    final activeWelder = _mapValue('activeWelder');
-
     return DashboardCard(
       title: 'Welding Data',
       child: Column(
@@ -575,17 +552,13 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
               if (_hasFeature('weldingCurrent'))
                 MetricRow(
                   label: 'Welding Current',
-                  value: '${weldingCurrent.toStringAsFixed(1)} A',
+                  value: '${_numValue('weldingCurrent').toStringAsFixed(1)} A',
                 ),
               if (_hasFeature('weldingVoltage'))
                 MetricRow(
                   label: 'Welding Voltage',
-                  value: '${weldingVoltage.toStringAsFixed(1)} V',
+                  value: '${_numValue('weldingVoltage').toStringAsFixed(1)} V',
                 ),
-              MetricRow(
-                label: 'Welder',
-                value: (activeWelder['name'] ?? '-').toString(),
-              ),
               MetricRow(
                 label: 'Current Setting',
                 value: '${_numValue('currentSetting').round()} A',
@@ -628,40 +601,29 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                 Expanded(
                   child: FilledButton(
                     onPressed: () async {
-                      final value = int.tryParse(
-                        _currentLimitController.text.trim(),
-                      );
+                      final value = int.tryParse(_currentLimitController.text.trim());
 
                       if (value == null || value < 20 || value > 400) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text(
-                              'Current limit must be between 20 and 400 A',
-                            ),
+                            content: Text('Current limit must be between 20 and 400 A'),
                           ),
                         );
                         return;
                       }
 
                       try {
-                        await MachineService.setCurrent(
-                          _activeMachineId,
-                          value,
-                        );
+                        await MachineService.setCurrent(_activeMachineId, value);
                         await _loadOverview(showLoader: false);
 
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Current limit applied: $value A'),
-                          ),
+                          SnackBar(content: Text('Current limit applied: $value A')),
                         );
                       } catch (error) {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to set current: $error'),
-                          ),
+                          SnackBar(content: Text('Failed to set current: $error')),
                         );
                       }
                     },
@@ -727,7 +689,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Widget _buildInputPowerCard(BuildContext context) {
-    final inputLineVoltage = _mapValue('inputLineVoltage');
+    final inputVoltage = _mapValue('inputVoltage');
     final config = _machineConfig;
     final showSingle =
         config.shouldShowSingleVoltage && _hasFeature('inputVoltageSingle');
@@ -758,18 +720,18 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                 ),
               if (showR)
                 MetricRow(
-                  label: 'R-Y Line Voltage',
-                  value: '${_numFromMap(inputLineVoltage, 'RY').round()} V',
+                  label: 'In Voltage R',
+                  value: '${_numFromMap(inputVoltage, 'R').round()} V',
                 ),
               if (showY)
                 MetricRow(
-                  label: 'Y-B Line Voltage',
-                  value: '${_numFromMap(inputLineVoltage, 'YB').round()} V',
+                  label: 'In Voltage Y',
+                  value: '${_numFromMap(inputVoltage, 'Y').round()} V',
                 ),
               if (showB)
                 MetricRow(
-                  label: 'B-R Line Voltage',
-                  value: '${_numFromMap(inputLineVoltage, 'BR').round()} V',
+                  label: 'In Voltage B',
+                  value: '${_numFromMap(inputVoltage, 'B').round()} V',
                 ),
               const MetricRow(label: 'Heartbeat', value: 'OK'),
             ],
@@ -792,22 +754,16 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                 if (showR)
                   Expanded(
                     child: _MiniGauge(
-                      label: 'R-Y',
-                      value: _numFromMap(
-                        inputLineVoltage,
-                        'RY',
-                      ).round().toString(),
+                      label: 'R',
+                      value: _numFromMap(inputVoltage, 'R').round().toString(),
                     ),
                   ),
                 if ((showSingle || showR) && showY) const SizedBox(width: 12),
                 if (showY)
                   Expanded(
                     child: _MiniGauge(
-                      label: 'Y-B',
-                      value: _numFromMap(
-                        inputLineVoltage,
-                        'YB',
-                      ).round().toString(),
+                      label: 'Y',
+                      value: _numFromMap(inputVoltage, 'Y').round().toString(),
                     ),
                   ),
                 if ((showSingle || showR || showY) && showB)
@@ -815,11 +771,8 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                 if (showB)
                   Expanded(
                     child: _MiniGauge(
-                      label: 'B-R',
-                      value: _numFromMap(
-                        inputLineVoltage,
-                        'BR',
-                      ).round().toString(),
+                      label: 'B',
+                      value: _numFromMap(inputVoltage, 'B').round().toString(),
                     ),
                   ),
               ],
@@ -1175,7 +1128,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Widget _buildAcVoltagePhaseCards() {
-    final inputLineVoltage = _mapValue('inputLineVoltage');
+    final inputVoltage = _mapValue('inputVoltage');
     final config = _machineConfig;
     final phaseItems = [
       if (config.shouldShowSingleVoltage && _hasFeature('inputVoltageSingle'))
@@ -1188,24 +1141,24 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
           config.showPhaseVoltageR &&
           _hasFeature('inputVoltageR'))
         (
-          label: 'R-Y',
-          value: '${_numFromMap(inputLineVoltage, 'RY').round()} V',
+          label: 'R',
+          value: '${_numFromMap(inputVoltage, 'R').round()} V',
           color: const Color(0xFF0EA5E9),
         ),
       if (config.shouldShowThreePhaseVoltage &&
           config.showPhaseVoltageY &&
           _hasFeature('inputVoltageY'))
         (
-          label: 'Y-B',
-          value: '${_numFromMap(inputLineVoltage, 'YB').round()} V',
+          label: 'Y',
+          value: '${_numFromMap(inputVoltage, 'Y').round()} V',
           color: const Color(0xFFF59E0B),
         ),
       if (config.shouldShowThreePhaseVoltage &&
           config.showPhaseVoltageB &&
           _hasFeature('inputVoltageB'))
         (
-          label: 'B-R',
-          value: '${_numFromMap(inputLineVoltage, 'BR').round()} V',
+          label: 'B',
+          value: '${_numFromMap(inputVoltage, 'B').round()} V',
           color: const Color(0xFF2563EB),
         ),
     ];
@@ -1311,21 +1264,21 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Widget _buildAcVoltageChart() {
-    final inputLineVoltage = _mapValue('inputLineVoltage');
+    final inputVoltage = _mapValue('inputVoltage');
     final config = _machineConfig;
     final phaseItems = [
       if (config.shouldShowThreePhaseVoltage &&
           config.showPhaseVoltageR &&
           _hasFeature('inputVoltageR'))
-        (label: 'R-Y', key: 'RY', color: const Color(0xFF0EA5E9)),
+        (label: 'R', color: const Color(0xFF0EA5E9)),
       if (config.shouldShowThreePhaseVoltage &&
           config.showPhaseVoltageY &&
           _hasFeature('inputVoltageY'))
-        (label: 'Y-B', key: 'YB', color: const Color(0xFFF59E0B)),
+        (label: 'Y', color: const Color(0xFFF59E0B)),
       if (config.shouldShowThreePhaseVoltage &&
           config.showPhaseVoltageB &&
           _hasFeature('inputVoltageB'))
-        (label: 'B-R', key: 'BR', color: const Color(0xFF2563EB)),
+        (label: 'B', color: const Color(0xFF2563EB)),
     ];
 
     if (phaseItems.isEmpty) {
@@ -1334,8 +1287,8 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
 
     final phases = phaseItems.map((item) => item.label).toList();
     final phaseColors = phaseItems.map((item) => item.color).toList();
-    final phaseValues = phaseItems
-        .map((phase) => _numFromMap(inputLineVoltage, phase.key).toDouble())
+    final phaseValues = phases
+        .map((phase) => _numFromMap(inputVoltage, phase).toDouble())
         .toList();
 
     if (phaseValues.every((value) => value == 0)) {
@@ -1520,7 +1473,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
       final voltage = ((item['voltage'] ?? 0) as num).toDouble();
 
       currentSpots.add(FlSpot(i.toDouble(), current));
-      voltageSpots.add(FlSpot(i.toDouble(), voltage));
+      voltageSpots.add(FlSpot(i.toDouble(), voltage * 4)); // 0-100V scaled to 0-400 chart
     }
 
     final visibleBottomLabels = trend.length <= 5
@@ -1581,9 +1534,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                         FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1),
                   ),
                   titlesData: FlTitlesData(
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     rightTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,

@@ -226,6 +226,21 @@ class CustomerAccessService {
     ),
   ];
 
+  static final Set<String> _premiumFeatureKeys = premiumFeatures
+      .map((item) => item.key)
+      .toSet();
+  static final Set<String> _buttonKeys = buttons
+      .map((item) => item.key)
+      .toSet();
+  static final Set<String> _reportKeys = reports
+      .map((item) => item.key)
+      .toSet();
+  static final Set<String> _categorizedFeatureKeys = {
+    ..._premiumFeatureKeys,
+    ..._buttonKeys,
+    ..._reportKeys,
+  };
+
   static const Set<String> allFeatureKeys = {
     'inputVoltageSingle',
     'inputVoltageR',
@@ -299,6 +314,22 @@ class CustomerAccessService {
         accessJson['machineIds'] ??
         accessJson['allowedMachineIds'] ??
         machineCodesJson;
+    final flattenedFeatures = {
+      ..._stringSet(accessJson['features']),
+      ..._stringSet(accessJson['allowedFeatures']),
+    };
+    final explicitPremiumFeatures = _explicitStringSet(accessJson, const [
+      'premiumFeatures',
+      'allowedPremiumFeatures',
+    ]);
+    final explicitButtons = _explicitStringSet(accessJson, const [
+      'buttons',
+      'allowedButtons',
+    ]);
+    final explicitReports = _explicitStringSet(accessJson, const [
+      'reports',
+      'allowedReports',
+    ]);
 
     return CustomerAccess(
       customerId: customerId ?? normalizedEmail,
@@ -308,21 +339,17 @@ class CustomerAccessService {
       allowedMachineCodes: _machineCodeSet(machineCodesJson),
       allowedMachineIds: _machineIdSet(machineIdsJson),
       allMachines: accessJson['allMachines'] == true,
-      enabledFeatures: _stringSet(
-        accessJson['features'] ?? accessJson['allowedFeatures'],
-      ),
+      enabledFeatures: flattenedFeatures.difference(_categorizedFeatureKeys),
       enabledParameters: _stringSet(
         accessJson['parameters'] ?? accessJson['allowedParameters'],
       ),
-      enabledPremiumFeatures: _stringSet(
-        accessJson['premiumFeatures'] ?? accessJson['allowedPremiumFeatures'],
-      ),
-      enabledButtons: _stringSet(
-        accessJson['buttons'] ?? accessJson['allowedButtons'],
-      ),
-      enabledReports: _stringSet(
-        accessJson['reports'] ?? accessJson['allowedReports'],
-      ),
+      enabledPremiumFeatures:
+          explicitPremiumFeatures ??
+          flattenedFeatures.intersection(_premiumFeatureKeys),
+      enabledButtons:
+          explicitButtons ?? flattenedFeatures.intersection(_buttonKeys),
+      enabledReports:
+          explicitReports ?? flattenedFeatures.intersection(_reportKeys),
     );
   }
 
@@ -379,6 +406,20 @@ class CustomerAccessService {
         })
         .where((item) => item.isNotEmpty)
         .toSet();
+  }
+
+  static Set<String>? _explicitStringSet(
+    Map<String, dynamic> json,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value is List) {
+        return _stringSet(value);
+      }
+    }
+
+    return null;
   }
 
   static Set<String> _machineCodeSet(dynamic value) {

@@ -64,15 +64,9 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       final data = await MachineService.getFleetOverview();
       if (!mounted) return;
 
-      final sortedMachines = _withExpectedFleetMachines(
+      final sortedMachines = _prepareFleetMachines(
         List<Map<String, dynamic>>.from(data),
-      ).where(_isMachineAllowed).toList();
-
-      sortedMachines.sort((a, b) {
-        final aCode = _machineCodeFor(a).toLowerCase();
-        final bCode = _machineCodeFor(b).toLowerCase();
-        return aCode.compareTo(bCode);
-      });
+      );
 
       setState(() {
         machines = sortedMachines;
@@ -80,9 +74,35 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       });
     } catch (e) {
       debugPrint('Fleet fetch error: $e');
+      if (!mounted) return;
+
+      setState(() {
+        // The expected fleet should remain visible even when no live data is
+        // available. Keep previously fetched data on transient refresh errors.
+        if (machines.isEmpty) {
+          machines = _prepareFleetMachines(const []);
+        }
+        isLoading = false;
+      });
     } finally {
       _isFetching = false;
     }
+  }
+
+  List<Map<String, dynamic>> _prepareFleetMachines(
+    List<Map<String, dynamic>> apiMachines,
+  ) {
+    final sortedMachines = _withExpectedFleetMachines(
+      apiMachines,
+    ).where(_isMachineAllowed).toList();
+
+    sortedMachines.sort((a, b) {
+      final aCode = _machineCodeFor(a).toLowerCase();
+      final bCode = _machineCodeFor(b).toLowerCase();
+      return aCode.compareTo(bCode);
+    });
+
+    return sortedMachines;
   }
 
   Color getHealthColor(String health) {
@@ -454,18 +474,18 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
     final machineCode = _machineCodeFor(machine);
     final selectedMachineId = _selectedMachineIdFor(machine);
     final health = _fieldText(machine, const ['health'], fallback: 'GREEN');
-    final status = _fieldText(
-      machine,
-      const ['status', 'liveStatus'],
-      fallback: '-',
-    );
+    final status = _fieldText(machine, const [
+      'status',
+      'liveStatus',
+    ], fallback: '-');
     final isOffline = _isOffline(machine);
     final current = isOffline
         ? 0
-        : _numberField(
-            machine,
-            const ['outputCurrent', 'current', 'weldingCurrent'],
-          );
+        : _numberField(machine, const [
+            'outputCurrent',
+            'current',
+            'weldingCurrent',
+          ]);
     final voltage = isOffline
         ? 0
         : _numberField(machine, const ['weldingVoltage', 'voltage']);

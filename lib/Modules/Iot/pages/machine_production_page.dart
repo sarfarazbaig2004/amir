@@ -169,11 +169,15 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   Future<void> _resetRunningJobData() async {
     await MachineService.resetJobData(_machineId);
     await _loadOverview(showLoader: false);
+    if (!mounted) return;
+    await _loadProductionData(showLoader: false);
   }
 
   Future<void> _resetMachineLifetimeData() async {
     await MachineService.resetMachineLifetimeData(_machineId);
     await _loadOverview(showLoader: false);
+    if (!mounted) return;
+    await _loadProductionData(showLoader: false);
   }
 
   Future<void> _selectProductionDate() async {
@@ -704,7 +708,11 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   Map<String, String> get _runningJobMetrics {
     final runningJob = _mapValue('runningJob');
     return {
-      'Arcing Time': _stringFromMap(runningJob, 'arcingTime', '0:00:00'),
+      'Arcing Time': _stringFromMap(
+        runningJob,
+        'arcingTime',
+        _stringFromMap(runningJob, 'arcTime', '0:00:00'),
+      ),
       'Idle Time': _stringFromMap(runningJob, 'idleTime', '0:00:00'),
       'DC Energy': _stringFromMap(runningJob, 'dcEnergy', '0'),
       'Deposition': _stringFromMap(runningJob, 'deposition', '0'),
@@ -714,9 +722,16 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   Map<String, String> get _lifetimeMetrics {
-    final lifetime = _mapValue('machineLifetime');
+    final machineLifetime = _mapValue('machineLifetime');
+    final lifetime = machineLifetime.isNotEmpty
+        ? machineLifetime
+        : _mapValue('lifetime');
     return {
-      'Arcing Time': _stringFromMap(lifetime, 'arcingTime', '0:00:00'),
+      'Arcing Time': _stringFromMap(
+        lifetime,
+        'arcingTime',
+        _stringFromMap(lifetime, 'arcTime', '0:00:00'),
+      ),
       'Idle Time': _stringFromMap(lifetime, 'idleTime', '0:00:00'),
       'DC Energy': _stringFromMap(lifetime, 'dcEnergy', '0'),
       'Deposition': _stringFromMap(lifetime, 'deposition', '0'),
