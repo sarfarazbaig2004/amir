@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 
 import '../services/machine_service.dart';
+import '../services/report_download.dart';
 
 class CustomerArcingReportPage extends StatefulWidget {
   const CustomerArcingReportPage({
@@ -25,6 +25,7 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
   bool _isLoading = true;
   String _errorMessage = '';
   Timer? _refreshTimer;
+  bool _refreshInProgress = false;
 
   @override
   void initState() {
@@ -41,27 +42,37 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     super.dispose();
   }
 
-  void _exportCsv() {
-    final date = DateTime.now().toIso8601String().split('T').first;
-    final url =
-        'https://api.iot.memcoin.com/api/reports/welder-arc-events.csv?date=$date';
-
-    html.AnchorElement(href: url)
-      ..setAttribute('download', 'welder-arc-report.csv')
-      ..click();
+  Future<void> _exportCsv() async {
+    await _exportReport('csv');
   }
 
-  void _exportPdf() {
-    final date = DateTime.now().toIso8601String().split('T').first;
-    final url =
-        'https://api.iot.memcoin.com/api/reports/welder-arc-events.pdf?date=$date';
+  Future<void> _exportPdf() async {
+    await _exportReport('pdf');
+  }
 
-    html.AnchorElement(href: url)
-      ..setAttribute('download', 'welder-arc-report.pdf')
-      ..click();
+  Future<void> _exportReport(String format) async {
+    final date = DateTime.now().toUtc().toIso8601String().split('T').first;
+    try {
+      final bytes = await MachineService.downloadWelderArcReport(
+        format: format,
+        date: date,
+      );
+      downloadReportFile(
+        bytes,
+        fileName: 'welder-arc-report-$date.$format',
+        mimeType: format == 'pdf' ? 'application/pdf' : 'text/csv',
+      );
+    } on MachineServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   Future<void> _loadReport({bool showLoader = true}) async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
     if (showLoader) {
       setState(() {
         _isLoading = true;
@@ -87,6 +98,8 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
         _isLoading = false;
         _errorMessage = error.message;
       });
+    } finally {
+      _refreshInProgress = false;
     }
   }
 
@@ -109,8 +122,9 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     if (machine is! Map) return false;
 
     final rawId = machine['id'] ?? machine['machineId'];
-    final machineId =
-        rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+    final machineId = rawId is int
+        ? rawId
+        : int.tryParse(rawId?.toString() ?? '');
 
     if (allowedMachineIds != null &&
         allowedMachineIds.isNotEmpty &&
@@ -215,18 +229,18 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     final avgCurrent = _sessions.isEmpty
         ? 0
         : _sessions.fold<num>(0, (sum, session) {
-              final row = _safeMap(session);
-              return sum + _toNum(row['current']);
-            }) /
-            _sessions.length;
+                final row = _safeMap(session);
+                return sum + _toNum(row['current']);
+              }) /
+              _sessions.length;
 
     final avgVoltage = _sessions.isEmpty
         ? 0
         : _sessions.fold<num>(0, (sum, session) {
-              final row = _safeMap(session);
-              return sum + _toNum(row['voltage']);
-            }) /
-            _sessions.length;
+                final row = _safeMap(session);
+                return sum + _toNum(row['voltage']);
+              }) /
+              _sessions.length;
 
     return Row(
       children: [
@@ -355,7 +369,8 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
     } else if (normalizedStatus == 'OFFLINE') {
       backgroundColor = const Color(0xFFE5E7EB);
       textColor = const Color(0xFF4B5563);
-    } else if (normalizedStatus == 'OVERHEAT' || normalizedStatus == 'CRITICAL') {
+    } else if (normalizedStatus == 'OVERHEAT' ||
+        normalizedStatus == 'CRITICAL') {
       backgroundColor = const Color(0xFFFEE2E2);
       textColor = const Color(0xFF991B1B);
     }
@@ -368,10 +383,7 @@ class _CustomerArcingReportPageState extends State<CustomerArcingReportPage> {
       ),
       child: Text(
         normalizedStatus,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.w800,
-        ),
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
       ),
     );
   }

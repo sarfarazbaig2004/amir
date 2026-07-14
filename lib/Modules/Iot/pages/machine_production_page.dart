@@ -25,8 +25,11 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   Map<String, dynamic>? _overviewData;
   Map<String, dynamic>? _dailyProductionData;
   List<dynamic> _productionTimeline = [];
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now().toUtc();
   Timer? _productionClockTimer;
+  Timer? _refreshTimer;
+  bool _refreshInProgress = false;
+  int _loadGeneration = 0;
   bool _isLoading = true;
   bool _isProductionLoading = true;
   String _errorMessage = '';
@@ -42,12 +45,16 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
         setState(() {});
       }
     });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _refreshLiveData();
+    });
   }
 
   @override
   void didUpdateWidget(covariant MachineProductionPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.machineId != widget.machineId) {
+      _loadGeneration++;
       _overviewData = null;
       _dailyProductionData = null;
       _productionTimeline = [];
@@ -59,10 +66,13 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   @override
   void dispose() {
     _productionClockTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _loadOverview({bool showLoader = true}) async {
+    final loadGeneration = _loadGeneration;
+    final machineId = _machineId;
     if (showLoader) {
       setState(() {
         _isLoading = true;
@@ -71,9 +81,9 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
     }
 
     try {
-      final data = await MachineService.getMachineOverview(_machineId);
+      final data = await MachineService.getMachineOverview(machineId);
 
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         _overviewData = data;
@@ -81,7 +91,7 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
         _errorMessage = '';
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         _isLoading = false;
@@ -91,6 +101,8 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   Future<void> _loadProductionData({bool showLoader = true}) async {
+    final loadGeneration = _loadGeneration;
+    final machineId = _machineId;
     if (showLoader) {
       setState(() {
         _isProductionLoading = true;
@@ -102,11 +114,11 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
 
     try {
       final results = await Future.wait([
-        MachineService.getMachineDailyProduction(_machineId, date),
-        MachineService.getMachineProductionTimeline(_machineId, date),
+        MachineService.getMachineDailyProduction(machineId, date),
+        MachineService.getMachineProductionTimeline(machineId, date),
       ]);
 
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         _dailyProductionData = results[0] as Map<String, dynamic>;
@@ -115,12 +127,25 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
         _productionErrorMessage = '';
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         _isProductionLoading = false;
         _productionErrorMessage = error.toString();
       });
+    }
+  }
+
+  Future<void> _refreshLiveData() async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
+    try {
+      await Future.wait([
+        _loadOverview(showLoader: false),
+        if (_isSelectedDateToday) _loadProductionData(showLoader: false),
+      ]);
+    } finally {
+      _refreshInProgress = false;
     }
   }
 
@@ -1211,7 +1236,7 @@ class _MachineProductionPageState extends State<MachineProductionPage> {
   }
 
   bool get _isSelectedDateToday {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     return _selectedDate.year == now.year &&
         _selectedDate.month == now.month &&
         _selectedDate.day == now.day;

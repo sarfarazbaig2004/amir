@@ -22,13 +22,24 @@ class MachineOverviewPage extends StatefulWidget {
 }
 
 class _MachineOverviewPageState extends State<MachineOverviewPage> {
-  final TextEditingController _trafoTempLimitController = TextEditingController(text: '85');
-  final TextEditingController _igbtTempLimitController = TextEditingController(text: '85');
-  final TextEditingController _heatSyncTempLimitController = TextEditingController(text: '85');
+  final TextEditingController _trafoTempLimitController = TextEditingController(
+    text: '85',
+  );
+  final TextEditingController _igbtTempLimitController = TextEditingController(
+    text: '85',
+  );
+  final TextEditingController _heatSyncTempLimitController =
+      TextEditingController(text: '85');
 
-  final TextEditingController _voltageRLimitController = TextEditingController(text: '470');
-  final TextEditingController _voltageYLimitController = TextEditingController(text: '470');
-  final TextEditingController _voltageBLimitController = TextEditingController(text: '470');
+  final TextEditingController _voltageRLimitController = TextEditingController(
+    text: '470',
+  );
+  final TextEditingController _voltageYLimitController = TextEditingController(
+    text: '470',
+  );
+  final TextEditingController _voltageBLimitController = TextEditingController(
+    text: '470',
+  );
 
   final TextEditingController _currentLimitController = TextEditingController();
   static const double _desktopMaxWidth = 1400;
@@ -39,6 +50,8 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   bool isLoading = true;
   String errorMessage = '';
   Timer? refreshTimer;
+  bool _refreshInProgress = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -52,6 +65,8 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.machineId != widget.machineId) {
       overviewData = null;
+      _loadGeneration++;
+      _refreshInProgress = false;
       _loadOverview();
     }
   }
@@ -59,6 +74,13 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   @override
   void dispose() {
     refreshTimer?.cancel();
+    _trafoTempLimitController.dispose();
+    _igbtTempLimitController.dispose();
+    _heatSyncTempLimitController.dispose();
+    _voltageRLimitController.dispose();
+    _voltageYLimitController.dispose();
+    _voltageBLimitController.dispose();
+    _currentLimitController.dispose();
     super.dispose();
   }
 
@@ -109,6 +131,11 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
   }
 
   Future<void> _loadOverview({bool showLoader = true}) async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
+    final loadGeneration = _loadGeneration;
+    final machineId = _activeMachineId;
+
     if (showLoader) {
       setState(() {
         isLoading = true;
@@ -117,9 +144,9 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
     }
 
     try {
-      final data = await MachineService.getMachineOverview(_activeMachineId);
+      final data = await MachineService.getMachineOverview(machineId);
 
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         overviewData = data;
@@ -127,12 +154,16 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
         errorMessage = '';
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         errorMessage = e.toString();
         isLoading = false;
       });
+    } finally {
+      if (loadGeneration == _loadGeneration) {
+        _refreshInProgress = false;
+      }
     }
   }
 
@@ -185,7 +216,7 @@ class _MachineOverviewPageState extends State<MachineOverviewPage> {
                       children: [
                         _buildWeldingCard(context),
                         const SizedBox(height: 16),
-SizedBox(
+                        SizedBox(
                           width: double.infinity,
                           child: WelderAssignmentPanel(
                             machineId: _machineCode.isEmpty
@@ -313,15 +344,15 @@ SizedBox(
               _buildTopSummary(context, isMobile: true),
               const SizedBox(height: 12),
               _buildWeldingCard(context),
-                        const SizedBox(height: 16),
-SizedBox(
-                          width: double.infinity,
-                          child: WelderAssignmentPanel(
-                            machineId: _machineCode.isEmpty
-                                ? widget.machineId ?? AppConfig.defaultMachineId
-                                : _machineCode,
-                          ),
-                        ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: WelderAssignmentPanel(
+                  machineId: _machineCode.isEmpty
+                      ? widget.machineId ?? AppConfig.defaultMachineId
+                      : _machineCode,
+                ),
+              ),
               const SizedBox(height: 12),
               if (_showInputVoltageSection) ...[
                 _buildInputPowerCard(context),
@@ -551,13 +582,13 @@ SizedBox(
             children: [
               if (_hasFeature('weldingCurrent'))
                 MetricRow(
-                  label: 'Welding Current',
-                  value: '${_numValue('weldingCurrent').toStringAsFixed(1)} A',
+                  label: 'Output Current',
+                  value: '${_numValue('outputCurrent').toStringAsFixed(1)} A',
                 ),
               if (_hasFeature('weldingVoltage'))
                 MetricRow(
-                  label: 'Welding Voltage',
-                  value: '${_numValue('weldingVoltage').toStringAsFixed(1)} V',
+                  label: 'Output Voltage',
+                  value: '${_numValue('outputVoltage').toStringAsFixed(1)} V',
                 ),
               MetricRow(
                 label: 'Current Setting',
@@ -568,6 +599,8 @@ SizedBox(
                   label: 'Fan Speed',
                   value: '${_numValue('fanSpeed').round()} RPM',
                 ),
+              MetricRow(label: 'Arc', value: _isArcOn ? 'ON' : 'OFF'),
+              MetricRow(label: 'Machine', value: _isMachineOn ? 'ON' : 'OFF'),
             ],
           ),
           const SizedBox(height: 14),
@@ -601,29 +634,40 @@ SizedBox(
                 Expanded(
                   child: FilledButton(
                     onPressed: () async {
-                      final value = int.tryParse(_currentLimitController.text.trim());
+                      final value = int.tryParse(
+                        _currentLimitController.text.trim(),
+                      );
 
                       if (value == null || value < 20 || value > 400) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Current limit must be between 20 and 400 A'),
+                            content: Text(
+                              'Current limit must be between 20 and 400 A',
+                            ),
                           ),
                         );
                         return;
                       }
 
                       try {
-                        await MachineService.setCurrent(_activeMachineId, value);
+                        await MachineService.setCurrent(
+                          _activeMachineId,
+                          value,
+                        );
                         await _loadOverview(showLoader: false);
 
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Current limit applied: $value A')),
+                          SnackBar(
+                            content: Text('Current limit applied: $value A'),
+                          ),
                         );
                       } catch (error) {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to set current: $error')),
+                          SnackBar(
+                            content: Text('Failed to set current: $error'),
+                          ),
                         );
                       }
                     },
@@ -733,7 +777,7 @@ SizedBox(
                   label: 'In Voltage B',
                   value: '${_numFromMap(inputVoltage, 'B').round()} V',
                 ),
-              const MetricRow(label: 'Heartbeat', value: 'OK'),
+              MetricRow(label: 'Heartbeat', value: _heartbeatLabel),
             ],
           ),
           if (_hasFeature('phaseVoltageCards') &&
@@ -807,9 +851,14 @@ SizedBox(
         children: [
           Column(
             children: [
+              if (_numValue('temperature') != 0)
+                MetricRow(
+                  label: 'Temperature',
+                  value: '${_numValue('temperature').toStringAsFixed(1)} °C',
+                ),
               if (_hasFeature('trafoCoreTemperature'))
                 MetricRow(
-                  label: 'Trafo Core Temperature',
+                  label: 'Transformer Temperature',
                   value:
                       '${_numFromMap(temperatures, 'trafoCore').toStringAsFixed(1)} °C',
                 ),
@@ -1232,6 +1281,20 @@ SizedBox(
     );
   }
 
+  String get _normalizedStatus =>
+      _stringValue('status', 'OFFLINE').trim().toUpperCase();
+
+  bool get _isArcOn => _normalizedStatus == 'WELDING';
+
+  bool get _isMachineOn =>
+      const {'IDLE', 'WELDING', 'COOLING'}.contains(_normalizedStatus);
+
+  String get _heartbeatLabel {
+    final seconds = _numValue('secondsSinceLastTelemetry');
+    if (_normalizedStatus == 'OFFLINE' || seconds > 30) return 'LOST';
+    return 'OK';
+  }
+
   Widget _buildWarningsCard(BuildContext context) {
     final warnings = (overviewData?['warnings'] as List<dynamic>?) ?? [];
 
@@ -1473,7 +1536,9 @@ SizedBox(
       final voltage = ((item['voltage'] ?? 0) as num).toDouble();
 
       currentSpots.add(FlSpot(i.toDouble(), current));
-      voltageSpots.add(FlSpot(i.toDouble(), voltage * 4)); // 0-100V scaled to 0-400 chart
+      voltageSpots.add(
+        FlSpot(i.toDouble(), voltage * 4),
+      ); // 0-100V scaled to 0-400 chart
     }
 
     final visibleBottomLabels = trend.length <= 5
@@ -1534,7 +1599,9 @@ SizedBox(
                         FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1),
                   ),
                   titlesData: FlTitlesData(
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     rightTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
@@ -1809,7 +1876,10 @@ SizedBox(
         return Colors.orange.shade700;
       case 'IDLE':
         return Colors.blue.shade700;
+      case 'COOLING':
+        return Colors.teal.shade700;
       case 'OFF':
+      case 'OFFLINE':
       default:
         return Colors.grey.shade700;
     }

@@ -26,11 +26,12 @@ class MachineService {
           )
           .timeout(_requestTimeout);
 
-      return _decodeMapResponse(
+      final overview = _decodeMapResponse(
         response,
         notFoundMessage:
             'Machine $normalizedMachineId was not found on the backend.',
       );
+      return normalizeMachineOverviewResponse(overview);
     } on TimeoutException {
       throw const MachineServiceException(
         'Machine overview request timed out. Check the API connection and try again.',
@@ -44,6 +45,34 @@ class MachineService {
         'Machine overview response was not valid JSON.',
       );
     }
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> normalizeMachineOverviewResponse(
+    Map<String, dynamic> response,
+  ) {
+    final normalized = Map<String, dynamic>.from(response);
+
+    final runningJob = response['runningJob'];
+    if (runningJob is Map) {
+      final normalizedRunningJob = Map<String, dynamic>.from(runningJob);
+      normalizedRunningJob['arcingTime'] ??= normalizedRunningJob['arcTime'];
+      normalized['runningJob'] = normalizedRunningJob;
+    }
+
+    final lifetime = response['machineLifetime'] ?? response['lifetime'];
+    if (lifetime is Map) {
+      final normalizedLifetime = Map<String, dynamic>.from(lifetime);
+      normalizedLifetime['arcingTime'] ??= normalizedLifetime['arcTime'];
+      normalized['machineLifetime'] = normalizedLifetime;
+    }
+
+    normalized['weldingCurrent'] ??= response['outputCurrent'];
+    normalized['weldingVoltage'] ??= response['outputVoltage'];
+    normalized['outputCurrent'] ??= response['weldingCurrent'];
+    normalized['outputVoltage'] ??= response['weldingVoltage'];
+
+    return normalized;
   }
 
   static Future<Map<String, dynamic>> getMachineDailyProduction(
@@ -218,12 +247,11 @@ class MachineService {
                 'serialNumber': machineMap['serialNumber'] ?? '-',
                 'location': machineMap['location'] ?? '-',
               },
-              'welder': session['welder'] ??
-                  {
-                    'name': machineMap['welder'] ?? '-',
-                  },
+              'welder':
+                  session['welder'] ?? {'name': machineMap['welder'] ?? '-'},
               'arcingTime': session['arcingTime'] ?? '0:00:00',
               'idleTime': session['idleTime'] ?? '0:00:00',
+              'startedAt': session['startedAt'] ?? session['startTime'],
               'current': session['current'] ?? machineMap['outputCurrent'] ?? 0,
               'voltage': session['voltage'] ?? 0,
               'status': session['status'] ?? machineMap['status'] ?? '-',
@@ -241,6 +269,41 @@ class MachineService {
     } on FormatException {
       throw const MachineServiceException(
         'Live welder session report response was not valid JSON.',
+      );
+    }
+  }
+
+  static Future<Uint8List> downloadWelderArcReport({
+    required String format,
+    required String date,
+  }) async {
+    final normalizedFormat = format.trim().toLowerCase();
+    if (normalizedFormat != 'csv' && normalizedFormat != 'pdf') {
+      throw const MachineServiceException('Report format must be CSV or PDF.');
+    }
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+              '${AppConfig.baseUrl}/api/reports/welder-arc-events.$normalizedFormat',
+            ).replace(queryParameters: {'date': date}),
+            headers: AuthService.authorizedHeaders,
+          )
+          .timeout(_requestTimeout);
+
+      _throwForStatus(
+        response,
+        notFoundMessage: 'Welder arc $normalizedFormat report was not found.',
+      );
+      return response.bodyBytes;
+    } on TimeoutException {
+      throw const MachineServiceException(
+        'Report download timed out. Check the API connection and try again.',
+      );
+    } on http.ClientException catch (error) {
+      throw MachineServiceException(
+        'Unable to download the welder arc report: ${error.message}',
       );
     }
   }
@@ -470,15 +533,14 @@ class MachineService {
     }
   }
 
-
-
   static Future<List<dynamic>> getActiveWelderAssignments({
     required String machineId,
   }) async {
     final response = await http
         .get(
-          Uri.parse('${AppConfig.baseUrl}/api/welder-assignments/active')
-              .replace(queryParameters: {'machineId': machineId}),
+          Uri.parse(
+            '${AppConfig.baseUrl}/api/welder-assignments/active',
+          ).replace(queryParameters: {'machineId': machineId}),
           headers: AuthService.authorizedHeaders,
         )
         .timeout(_requestTimeout);
@@ -693,7 +755,6 @@ class MachineService {
       );
     }
   }
-
 
   static Uri _engineeringSetpointsUri(String machineId) {
     final encodedMachineId = Uri.encodeComponent(machineId);

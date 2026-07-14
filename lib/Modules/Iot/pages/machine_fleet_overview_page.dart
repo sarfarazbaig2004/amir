@@ -27,6 +27,7 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   Timer? timer;
   Timer? blinkTimer;
   bool isBlinkOn = true;
+  bool _fetchInProgress = false;
 
   @override
   void initState() {
@@ -53,13 +54,19 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
   }
 
   Future<void> fetchData() async {
+    if (_fetchInProgress) return;
+    _fetchInProgress = true;
     try {
       final data = await MachineService.getFleetOverview();
       if (!mounted) return;
 
-      final sortedMachines = List<Map<String, dynamic>>.from(
+      final allowedMachines = List<Map<String, dynamic>>.from(
         data,
       ).where(_isMachineAllowed).toList();
+      final sortedMachines = await Future.wait(
+        allowedMachines.map(_withOverviewTelemetry),
+      );
+      if (!mounted) return;
 
       sortedMachines.sort((a, b) {
         const priority = {'RED': 0, 'YELLOW': 1, 'GREEN': 2};
@@ -76,6 +83,35 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
       });
     } catch (e) {
       debugPrint('Fleet fetch error: $e');
+    } finally {
+      _fetchInProgress = false;
+    }
+  }
+
+  Future<Map<String, dynamic>> _withOverviewTelemetry(
+    Map<String, dynamic> machine,
+  ) async {
+    final machineId = _selectedMachineIdFor(machine);
+    try {
+      final overview = await MachineService.getMachineOverview(machineId);
+      return {
+        ...machine,
+        'current':
+            overview['outputCurrent'] ??
+            overview['weldingCurrent'] ??
+            machine['current'],
+        'voltage':
+            overview['outputVoltage'] ??
+            overview['weldingVoltage'] ??
+            machine['voltage'],
+        'temperature':
+            overview['temperature'] ??
+            overview['trafoCoreTemperature'] ??
+            machine['temperature'],
+        'lastUpdatedAt': overview['lastUpdatedAt'] ?? machine['lastUpdatedAt'],
+      };
+    } catch (_) {
+      return machine;
     }
   }
 
@@ -121,7 +157,10 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
         return Colors.orange.shade700;
       case 'IDLE':
         return Colors.blue.shade700;
+      case 'COOLING':
+        return Colors.teal.shade700;
       case 'OFF':
+      case 'OFFLINE':
         return Colors.grey.shade700;
       default:
         return Colors.grey.shade600;
@@ -436,6 +475,11 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
                 valueColor: const Color(0xFF111827),
               ),
               _buildMachineDetailRow(
+                'Voltage',
+                '${(machine['voltage'] ?? machine['outputVoltage'] ?? 0).round()} V',
+                valueColor: const Color(0xFF111827),
+              ),
+              _buildMachineDetailRow(
                 'Temp',
                 '${(machine['temperature'] ?? 0).round()} °C',
                 valueColor: const Color(0xFF111827),
@@ -443,6 +487,12 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
               _buildMachineDetailRow(
                 'Welder',
                 (machine['welder'] ?? 'Unknown').toString(),
+              ),
+              _buildMachineDetailRow(
+                'Last Update',
+                _formatUpdatedAt(
+                  machine['lastUpdatedAt'] ?? machine['lastSeen'],
+                ),
               ),
               const SizedBox(height: 20),
               const Divider(color: Color(0xFFE5E7EB), height: 1),
@@ -478,6 +528,15 @@ class _MachineFleetOverviewPageState extends State<MachineFleetOverviewPage> {
         ),
       ),
     );
+  }
+
+  String _formatUpdatedAt(dynamic value) {
+    final parsed = DateTime.tryParse(value?.toString() ?? '');
+    if (parsed == null) return '-';
+    final local = parsed.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}:'
+        '${local.second.toString().padLeft(2, '0')}';
   }
 
   String _selectedMachineIdFor(Map<String, dynamic> machine) {
